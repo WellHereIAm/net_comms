@@ -41,7 +41,7 @@ impl std::error::Error for CommandRawError {}
 
 impl CommandRaw {
 
-    pub fn get<T, U>(msg: Option<T>) -> Self
+    pub fn get<T>(msg: Option<T>) -> Self
     where 
         T: std::fmt::Display {
 
