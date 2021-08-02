@@ -1,13 +1,68 @@
 extern crate lib;
+use std::{collections::HashMap, net::TcpStream};
+
+
+
 use lib::*;
 use utils::input;
 
-use std::{convert::TryInto, net::TcpStream};
 
 fn main() {   
-    let user = get_user();
-    println!("{:?}", user);
-    let cmd = CommandRaw::get::<String>(None);
+    //let user = get_user();
+    //println!("{:?}", user);
+    let x = PacketRaw::get();
+
+    struct PacketBlah {
+        size: usize,
+        kind: PacketKind,
+        empty: EmptyPacket,
+        metadata: MetaDataPacket,
+        add_info: AddInfoPacket,
+        content: ContentPacket,
+        request: RequestPacket,
+        unknown: UnknownPacket,
+    }
+
+    fn get<T: PacketType>() -> HashMap<String, Box<T>> {
+        let mut hash = HashMap::new();
+        hash.insert("PacketKind::Empty".to_string(), Box::new(EmptyPacket::new(10)));
+        hash
+    }
+
+    let mut x: HashMap<PacketKind, T: PacketType> = HashMap::new();
+
+
+
+    // Create empty value for every packet
+
+    //x.push(EmptyPacket::new(10));
+    //x.push(MetaDataPacket::new(10));
+
+    println!("{:?}", x);
+
+    // Loop till leave command is used. Later use more threads, one to process commands, other to show messages etc.
+    //loop {
+    //    let cmd = CommandRaw::get::<String>(None).process_cmd();
+    //    match cmd {
+    //        Ok(cmd) => {
+    //            match cmd {
+    //                Command::Register(_) => todo!(),
+    //                Command::Login(_) => todo!(),
+    //                Command::Yes => todo!(),
+    //                Command::No => todo!(),
+    //                Command::Send(..) => todo!(),
+    //                Command::Unknown => todo!(),
+    //            }
+    //        },
+    //        Err(e) => {
+    //            println!("Error in main while processing command. {}", e)
+    //        },
+    //    }
+    //    
+    //}
+
+    
+
 }
 
 // Later actually establish connection with the server.

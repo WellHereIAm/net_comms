@@ -1,13 +1,15 @@
+use std::str::Bytes;
+
 use utils::input;
 
-use crate::{Message, components::user::UserUnchecked, settings};
+use crate::{Message, components::user::UserUnchecked, settings, MessageKind};
 
 pub enum Command {
     Register(UserUnchecked),
     Login(UserUnchecked),
     Yes,
     No,
-    Send,
+    Send(MessageKind ,Vec<String>, Vec<u8>),    // Send commands have also info about message kind, recipients and content
     Unknown
 }
 
@@ -66,7 +68,7 @@ impl CommandRaw {
 
     // This function consumes the whole CommandRaw struct.    
     pub fn process_cmd(self) -> Result<Command, CommandError> {
-
+        // ERROR HANDLING!
         match self.vec[0].as_str() {
             "register" => {
                 // Later solve situations where check returns an Err value.
@@ -96,7 +98,7 @@ impl CommandRaw {
             },
             "send" => {
                 let msg = CommandRaw::check_send(self);
-                Ok(Command::Send)
+                Ok(msg.unwrap())
             },
             _ => {
                 // Maybe throw some error?
@@ -134,6 +136,13 @@ impl CommandRaw {
 
     fn check_send(cmd: CommandRaw) -> Result<Command, CommandRawError> {
         // Later will perform logic to check if inputted command is a valid send command.
-        Ok(Command::Send)
+        let kind = MessageKind::Text; // Later deduct kind based of the content
+        let recipients = vec![cmd.vec[1].clone()]; // Later process it to remove parentheses to allow multiple receivers.
+        let content = Vec::from(cmd.vec[2].as_bytes());
+        Ok(Command::Send(
+            kind,
+            recipients,
+            content,
+        ))
     }
 }

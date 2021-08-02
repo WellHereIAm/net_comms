@@ -1,8 +1,7 @@
 extern crate lib;
 use lib::*;
 
+use utils::slice_to_array;
 
-fn main() {
-    let packet = Packet::new_empty();
-    println!("{:?}", packet);
-}
+
+fn main() {}
