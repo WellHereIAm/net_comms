@@ -1,5 +1,6 @@
 pub trait ToBuffer {    
 
+    // This should not be borrow as now it needs to clone contents.
     fn to_buff(&self) -> Vec<u8>;
 }
 

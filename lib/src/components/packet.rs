@@ -1,17 +1,29 @@
-use std::{io::Read, net::TcpStream, ops::Range, time::SystemTime};
+// Finish errors, now they are not very helpful. Maybe use one error struct for whole project and just use codes?
+
+
+use std::{time::SystemTime};
 
 use chrono::{DateTime, NaiveDateTime, Utc};
 
-use crate::{ADDR, FromBuffer, PORT, ToBuffer, buffer, settings};
+use crate::{FromBuffer, MessageKind, ToBuffer};
 
+use PacketKind::*;
+
+type Size = usize;
+type Id = usize;
+type Length = usize;
+type Content = Vec<u8>;
 
 #[derive(Debug, Clone)]
+
+// Change whole concept of metadata and additional info to one metadata json?
 pub enum PacketKind {
-    Empty,
-    Metadata,
-    AddInfo,
-    Content,
+    Empty(Size, Content),
+    MetaData(Length, MessageKind, Id, Id, DateTime<Utc>),
+    AddInfo(Size, Content),
+    Content(Size, Content),
     Request,
+    End,
     Unknown,
 }
 
@@ -19,31 +31,38 @@ impl ToBuffer for PacketKind {
 
     fn to_buff(&self) -> Vec<u8> {
 
-        let mut buff =  vec![0_u8, 0_u8];
-
+        let mut buff: Vec<u8> = Vec::new();
 
         match self {
-            PacketKind::Empty => {},
-            PacketKind::Metadata => {
-                buff[0] = 1_u8;
-                buff[1] = 0_u8;
+            Empty(_, content) => {
+                buff.extend([0_u8, 0_u8]);
+                buff.extend(content);
             },
-            PacketKind::AddInfo => {
-                buff[0] = 2_u8;
-                buff[1] = 0_u8;
+            MetaData(length, msg_kind, author_id, recipient_id, datetime) => {
+                buff.extend([1_u8, 0_u8]);
+                buff.extend(length.to_buff());
+                buff.extend(msg_kind.to_buff());
+                buff.extend(author_id.to_buff());
+                buff.extend(recipient_id.to_buff());
+                buff.extend(datetime.to_buff());
             },
-            PacketKind::Content => {
-                buff[0] = 3_u8;
-                buff[1] = 0_u8;
+            AddInfo(_, content) => {
+                buff.extend([2_u8, 0_u8]);
+                buff.extend(content);
             },
-            PacketKind::Request => {
-                buff[0] = 4_u8;
-                buff[1] = 0_u8;
+            Content(_, content) => {
+                buff.extend([3_u8, 0_u8]);
+                buff.extend(content);
             },
-            PacketKind::Unknown => {
-                buff[0] = 255_u8;
-                buff[1] = 0_u8;
-            }
+            Request => {
+                buff.extend([4_u8, 0_u8]);
+            },
+            End => {
+                buff.extend([5_u8, 0_u8]);
+            },
+            Unknown => {
+                buff.extend([255_u8, 0_u8]);
+            },
         }
 
         buff
@@ -53,13 +72,24 @@ impl ToBuffer for PacketKind {
 impl FromBuffer for PacketKind {
 
     fn from_buff(buff: Vec<u8>) -> Self {
+
+        let kind = &buff[0..2];
+        let size = buff.len();
+        let contents = &buff[2..size];
         
-        let kind = match buff[0] {
-            0 => PacketKind::Empty,
-            1 => PacketKind::Metadata,
-            2 => PacketKind::AddInfo,
-            3 => PacketKind::Content,
+        let kind = match kind[0] {
+            0 => PacketKind::Empty(size, contents.to_vec()),
+            1 => PacketKind::MetaData(
+                usize::from_buff(contents[0..8].to_vec()),
+                MessageKind::from_buff(contents[8..10].to_vec()),
+                usize::from_buff(contents[10..18].to_vec()),
+                usize::from_buff(contents[18..26].to_vec()),
+                DateTime::<Utc>::from_buff(contents[26..34].to_vec()),
+            ),
+            2 => PacketKind::AddInfo(size, contents.to_vec()),
+            3 => PacketKind::Content(size, contents.to_vec()),
             4 => PacketKind::Request,
+            5 => PacketKind::End,
             _ => PacketKind::Unknown,            
         };
 
@@ -69,258 +99,38 @@ impl FromBuffer for PacketKind {
     
 }
 
-pub trait PacketType {
+// General implementation
+impl PacketKind {
 
-    fn get_kind(&self) -> PacketKind;
-
-    fn get_size(&self) -> usize;
-}
-
-#[derive(Debug)]
-pub struct PacketRaw {
-    size: usize,
-    kind: PacketKind,
-    data: Vec<u8>,
-}
-
-impl PacketRaw {
-    
-    pub fn new() -> Self {
-        todo!()
+    pub fn new_empty(size: usize) -> Self {
+        Empty(size, vec![0_u8; size])
     }
 
-    // later return result
-    pub fn get() -> PacketRaw {
-
-        let mut size = 10;
-        let mut kind = PacketKind::Unknown;
-        let mut data = vec![0_u8; 10];
-
-        
-
-        PacketRaw {
-            size,
-            kind,
-            data
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct Packet<T: PacketType> {
-    size: usize,
-    kind: PacketKind,
-    data: T,
-}
-
-impl<T: PacketType + ToBuffer> ToBuffer for Packet<T> {
-
-    fn to_buff(&self) -> Vec<u8> {
-
-        let mut buff: Vec<u8> = Vec::new();
-
-        buffer::write_to_buff(&mut buff, self.size.to_buff().as_slice());
-        buffer::write_to_buff(&mut buff, self.kind.to_buff().as_slice());
-
-        buff.extend(self.data.to_buff());
-
-        buff
-    }
-}
-
-impl <T: PacketType> FromBuffer for Packet<T> {
-
-    fn from_buff(buff: Vec<u8>) -> Self {
-        todo!()
-    }
-}
-
-impl<T: PacketType> Packet<T> {
-
-    fn new_empty() -> Self {
-        todo!()
+    pub fn new_metadata(length: usize, msg_kind: MessageKind, author_id: usize, recipient_id: usize) -> Self {
+        MetaData(length, msg_kind, author_id, recipient_id, PacketKind::get_datetime())
     }
 
-    pub fn new(packet: T) -> Self {
-        
-        let size = packet.get_size();
-        let kind = packet.get_kind();
-        let data = packet;
-
-        Packet {
-            size,
-            kind,
-            data
-        }
+    pub fn new_add_info(content: Vec<u8>) -> Self {
+        AddInfo(content.len(), content)
     }
 
-    pub fn get() -> Self {
-
-        todo!()
+    pub fn new_content(content: Vec<u8>) -> Self {
+        Content(content.len(), content)
     }
 
-    pub fn get_size(&self) -> usize {     
-        self.size
-    }
+    pub fn get_size(&self) -> usize {
 
-    pub fn set_size(&mut self, size: usize) {
-        self.size = size;
-    }
+        let size = match self {
+            Empty(size, _) => *size,
+            MetaData(..) => 34 as usize,
+            AddInfo(size, _) => *size,
+            Content(size, _) => *size,
+            Request => 10 as usize,
+            End => 10 as usize,
+            Unknown => 10 as usize,
+        };
 
-    pub fn get_kind(&self) -> PacketKind {
-        self.kind.clone()  
-    }
-    
-    pub fn set_kind(&mut self, kind: PacketKind) {
-        self.kind = kind;
-    }
-
-    /// This function needs to be the last one, as it consumes Packet.
-    pub fn get_data(self) -> T {
-        self.data
-    }
-
-    pub fn set_data(&mut self, data: T) {
-        self.data = data;
-    }
-}
-
-impl Packet<EmptyPacket> {
-
-    fn get_empty() -> Packet<EmptyPacket> {
-        todo!()
-    }    
-}
-
-#[derive(Debug, Clone)]
-pub struct EmptyPacket {
-    size: usize,
-    content: Vec<u8>,
-}
-
-impl PacketType for EmptyPacket {
-
-    fn get_kind(&self) -> PacketKind {
-        PacketKind::Empty
-    }
-
-    fn get_size(&self) -> usize {
-        self.size
-    }
-}
-
-impl ToBuffer for EmptyPacket {
-
-    fn to_buff(&self) -> Vec<u8> {
- 
-        let mut buff: Vec<u8> = Vec::new();
-
-        buffer::write_to_buff(&mut buff, &self.content.as_slice());        
-
-        buff
-    }
-}
-
-impl FromBuffer for EmptyPacket {
-
-    fn from_buff(buff: Vec<u8>) -> Self {
-
-        // let kind = PacketKind::Empty;
-        
-        let size = buff.len();
-        let content = buff;
-
-        EmptyPacket {
-            size,
-            content,
-        }   
-    }
-}
-
-impl EmptyPacket {
-
-    pub fn new(size: usize) -> Self {
-
-        let content = vec![0_u8; size];
-
-        EmptyPacket {
-            size,
-            content,
-        }        
-    }
-    
-    pub fn get_content(&self) -> Vec<u8> {
-        self.content.clone()
-    }
-}
-
-#[derive(Debug)]
-pub struct MetaDataPacket {
-    size: usize, 
-    author_id: usize, // Byte size: 8
-    recipient_id: usize, // Byte size: 8 
-    time: DateTime<Utc>, // Byte size:  8
-}
-
-impl PacketType for MetaDataPacket {
-    
-    fn get_kind(&self) -> PacketKind {
-        PacketKind::Metadata
-    }
-
-    fn get_size(&self) -> usize {
-        self.size
-    }
-
-    
-}
-
-impl ToBuffer for MetaDataPacket {
-
-    fn to_buff(&self) -> Vec<u8> {
-
-        let mut buff: Vec<u8> = Vec::new();
-
-        buffer::write_to_buff(&mut buff, &self.author_id.to_buff().as_slice());
-        buffer::write_to_buff(&mut buff, &self.recipient_id.to_buff().as_slice());
-        buffer::write_to_buff(&mut buff, &self.time.to_buff().as_slice());
-
-        buff
-    }
-    
-}
-impl FromBuffer for MetaDataPacket {
-
-    fn from_buff(buff: Vec<u8>) -> Self {
-
-        let size = buff.len();
-        let author_id = usize::from_buff(buff[0..8].to_vec());
-        let recipient_id = usize::from_buff(buff[8..16].to_vec());
-        let time = DateTime::<Utc>::from_buff(buff[16..24].to_vec());
-        
-        MetaDataPacket {
-            size,
-            author_id,
-            recipient_id,
-            time,
-        }
-    }   
-}
-
-impl MetaDataPacket {
-
-    pub fn new(author_id: usize) -> Self {
-
-        let size = 24;
-        let recipient_id = settings::SERVER_ID;
-        let time = Self::get_datetime();
-
-        MetaDataPacket {
-            size,
-            author_id,
-            recipient_id,
-            time,
-        }
+        size
     }
 
     fn get_datetime() -> DateTime<Utc> {
@@ -336,109 +146,152 @@ impl MetaDataPacket {
     
         time
     }
+    
+}
 
-    pub fn get_size(&self) -> usize {
-        self.size
+// Implementation for Empty, AddInfo, Content.
+impl PacketKind {
+
+    pub fn get_content(&self) -> Result<Vec<u8>, PacketKindError> {
+
+        if let Empty(_, content) | AddInfo(_, content) | Content(_, content) = self {
+            return Ok(content.clone());
+        } else {
+            return Err(PacketKindError {});
+        }
+    }
+}
+
+// Implementation for MetaData variant.
+impl PacketKind {
+
+    pub fn get_message_length(&self) -> Result<usize, PacketKindError> {
+
+        if let MetaData(length, ..) = self {
+            return Ok(*length);
+        } else {
+            return Err(PacketKindError {});
+        }
     }
 
-    pub fn get_author_id(&self) -> usize {
-        self.author_id
+    pub fn get_message_kind(&self) -> Result<MessageKind, PacketKindError> {
+
+        if let MetaData(_, msg_kind, _, _, _) = self {
+            return Ok(msg_kind.clone());
+        } else {
+            return Err(PacketKindError {});
+        }
     }
 
-    pub fn get_recipient_id(&self) -> usize {
-        self.recipient_id
+    pub fn get_author_id(&self) -> Result<usize, PacketKindError> {
+
+        if let MetaData(_, _, author_id, _, _) = self {
+            return Ok(*author_id);
+        } else {
+            return Err(PacketKindError {});
+        }
     }
 
-    pub fn get_time(&self) -> DateTime<Utc> {
-        self.time
+    pub fn get_recipient_id(&self) -> Result<usize, PacketKindError> {
+
+        if let MetaData(_, _, _, recipient_id, _) = self {
+            return Ok(*recipient_id);
+        } else {
+            return Err(PacketKindError {});
+        }
+    }
+    
+    pub fn get_time(&self) -> Result<DateTime<Utc>, PacketKindError> {
+
+        if let MetaData(.., datetime) = self {
+            return Ok(*datetime);
+        } else {
+            return Err(PacketKindError {});
+        }
     }
     
 }
-pub struct AddInfoPacket;
 
 #[derive(Debug)]
-pub struct ContentPacket {
+pub struct PacketKindError {}
+
+impl std::fmt::Display for PacketKindError {
+
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PacketKindError")
+    }    
+}
+
+impl std::error::Error for PacketKindError {}
+
+#[derive(Debug)]
+pub struct Packet {
     size: usize,
-    content: Vec<u8>,
+    kind: PacketKind,
 }
 
-impl PacketType for ContentPacket {
-
-    fn get_kind(&self) -> PacketKind {
-        PacketKind::Content
-    }
-
-    fn get_size(&self) -> usize {
-        self.size
-    }
-}
-
-impl ToBuffer for ContentPacket {
-
+impl ToBuffer for Packet {
+    
     fn to_buff(&self) -> Vec<u8> {
- 
         let mut buff: Vec<u8> = Vec::new();
-
-        buffer::write_to_buff(&mut buff, &self.content.as_slice());        
+        buff.extend(self.size.to_buff());
+        buff.extend(self.kind.to_buff());
 
         buff
     }
 }
 
-impl FromBuffer for ContentPacket {
+impl FromBuffer for Packet {
 
     fn from_buff(buff: Vec<u8>) -> Self {
-
-        // let kind = PacketKind::Empty;
-        
         let size = buff.len();
-        let content = buff;
+        let kind = PacketKind::from_buff(buff[8..size].to_vec());
 
-        ContentPacket {
+        Packet {
             size,
-            content,
-        }   
+            kind,
+        }
     }
 }
 
-impl ContentPacket {
+impl Packet {
 
-    fn new(size: usize) -> Self {
+    pub fn new(kind: PacketKind) -> Self {
 
-        let content = vec![0_u8; size];
+        // Byte size of packed 8 for storing it´s size 2 for kind and get_size gets size of data inside each variant.
+        let size = kind.get_size() + 10;
 
-        ContentPacket {
+        Packet {
             size,
-            content,
-        }        
+            kind,
+        }
     }
-    
-    pub fn get_content(&self) -> Vec<u8> {
-        self.content.clone()
+
+    pub fn new_empty() -> Self {
+
+        Packet {
+            size: 10,
+            kind: Empty(0, Vec::new())
+        }
+    }
+
+    pub fn get_size(&self) -> usize {
+        self.size
+    }
+
+    pub fn get_contents(&self) -> PacketKind {
+        self.kind.clone()
     }
 }
-pub struct RequestPacket;
 
 #[derive(Debug)]
-pub struct UnknownPacket;
+pub struct PacketError {}
 
-impl PacketType for UnknownPacket {
+impl std::fmt::Display for PacketError {
 
-    fn get_kind(&self) -> PacketKind {
-        PacketKind::Unknown
-    }
-
-    fn get_size(&self) -> usize {
-        0
-    }
-
-    
-}
-
-impl UnknownPacket {
-
-    pub fn new() -> Self {
-        UnknownPacket {}
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PacketError")
     }    
 }
 
+impl std::error::Error for PacketError {}

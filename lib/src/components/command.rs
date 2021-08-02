@@ -1,8 +1,7 @@
-use std::str::Bytes;
 
 use utils::input;
 
-use crate::{Message, components::user::UserUnchecked, settings, MessageKind};
+use crate::{components::user::UserUnchecked,  MessageKind};
 
 pub enum Command {
     Register(UserUnchecked),

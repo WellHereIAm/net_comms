@@ -1,44 +1,38 @@
 extern crate lib;
 use std::{collections::HashMap, net::TcpStream};
 
-
-
 use lib::*;
 use utils::input;
 
 
-fn main() {   
+
+fn main() {
+
+    let mut msg = Message::new();
+    msg.set_metadata(Packet::new(PacketKind::new_metadata(3, MessageKind::Text, 1, 2)));
+    msg.push_content(Packet::new(PacketKind::new_content("Hello from client I say.".to_string().as_bytes().to_vec())));
+    msg.push_content(Packet::new(PacketKind::End));
+
+    println!("{:?}", &msg);
+    
+    let socket = format!("{}:{}", ADDR, PORT);
+    
+    match TcpStream::connect(socket) {
+        Ok(mut stream) => {
+            println!("Successfully connected!");
+            msg.send(&mut stream);
+        },
+        Err(_) => todo!(),
+    };
+
     //let user = get_user();
     //println!("{:?}", user);
-    let x = PacketRaw::get();
-
-    struct PacketBlah {
-        size: usize,
-        kind: PacketKind,
-        empty: EmptyPacket,
-        metadata: MetaDataPacket,
-        add_info: AddInfoPacket,
-        content: ContentPacket,
-        request: RequestPacket,
-        unknown: UnknownPacket,
-    }
-
-    fn get<T: PacketType>() -> HashMap<String, Box<T>> {
-        let mut hash = HashMap::new();
-        hash.insert("PacketKind::Empty".to_string(), Box::new(EmptyPacket::new(10)));
-        hash
-    }
-
-    let mut x: HashMap<PacketKind, T: PacketType> = HashMap::new();
-
 
 
     // Create empty value for every packet
 
     //x.push(EmptyPacket::new(10));
     //x.push(MetaDataPacket::new(10));
-
-    println!("{:?}", x);
 
     // Loop till leave command is used. Later use more threads, one to process commands, other to show messages etc.
     //loop {
