@@ -5,6 +5,12 @@ use std::{time::SystemTime};
 
 use chrono::{DateTime, NaiveDateTime, Utc};
 
+use serde::{Serialize, Deserialize};
+
+use ron::ser as ron_ser;
+use ron::ser::PrettyConfig;
+use ron::de as ron_de;
+
 use crate::{FromBuffer, MessageKind, ToBuffer};
 
 use PacketKind::*;
@@ -14,11 +20,98 @@ type Id = usize;
 type Length = usize;
 type Content = Vec<u8>;
 
-// Change whole concept of metadata and additional info to one metadata json? Probably better choice after I make it work.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MetaData {
+    pub message_kind: MessageKind,
+    pub message_length: usize,
+    pub datetime: Vec<u8>,
+    pub author_id: usize,
+    pub recipient_id: usize,
+    pub recipients: Vec<String>,
+    pub file_kind: Option<String>,
+}
+
+
+
+impl ToBuffer for MetaData {
+
+    fn to_buff(self) -> Vec<u8> {
+        self.to_ron().to_buff()
+    }    
+}
+
+impl FromBuffer for MetaData {
+
+    fn from_buff(buff: Vec<u8>) -> Self {
+        MetaData::from_ron(&String::from_buff(buff))
+    }
+}
+
+impl MetaData {
+    
+    pub fn new(message_kind: MessageKind, message_length: usize,
+               author_id: usize,
+               recipient_id: usize, recipients: Vec<String>,
+               file_kind: Option<String>) -> Self {
+
+        let datetime = Self::datetime().to_buff();
+        
+        MetaData {
+            message_kind,
+            message_length,
+            datetime,
+            author_id,
+            recipient_id,
+            recipients,
+            file_kind,
+        }
+    }
+
+    pub fn to_ron(&self) -> String {
+        ron_ser::to_string(&self).unwrap() // Can I use unwrap?
+    }
+
+    pub fn to_ron_pretty(&self, config: Option<PrettyConfig>) -> String {
+
+        let config = match config {
+            Some(config) => config,
+            None => {
+                let config = PrettyConfig::new()
+                    .with_depth_limit(4)
+                    .with_indentor("\t".to_owned())
+                    .with_decimal_floats(true);
+                config
+            },
+        };
+
+        ron_ser::to_string_pretty(&self, config).unwrap() // Can I use unwrap?
+
+    }
+
+    pub fn from_ron(ron: &String) -> Self {
+        ron_de::from_str(ron).unwrap() // Can I use unwrap?
+    }
+
+    fn datetime() -> DateTime<Utc> {
+    
+        let now = SystemTime::now()
+                            .duration_since(SystemTime::UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs();
+
+        let naive_datetime = NaiveDateTime::from_timestamp(now as i64, 0);
+    
+        let time = DateTime::from_utc(naive_datetime, Utc); 
+    
+        time
+    }
+}
+
+// Change whole concept of metadata and additional info to one RON.
 #[derive(Debug, Clone)]
 pub enum PacketKind {
     Empty(Size, Content),
-    MetaData(Length, MessageKind, Id, Id, DateTime<Utc>),
+    MetaData(Size, MessageKind, Id, Id, DateTime<Utc>),
     AddInfo(Size, Content),
     Content(Size, Content),
     Request,

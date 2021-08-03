@@ -19,9 +19,11 @@ mod components {
 pub use crate::components::*;
 pub use crate::settings::*;
 
+
 use chrono::{DateTime, NaiveDateTime, Utc};
 
-// Probably needs to be implemented somewhere else.
+
+// Wrappers around some types that are used inside packets.
 impl ToBuffer for usize {
 
     fn to_buff(self) -> Vec<u8> {
@@ -29,7 +31,7 @@ impl ToBuffer for usize {
         self.to_be_bytes().to_vec()
     }
 }
-// Probably needs to be implemented somewhere else.
+
 impl FromBuffer for usize {
 
     fn from_buff(buff: Vec<u8>) -> Self {
@@ -60,6 +62,19 @@ impl FromBuffer for DateTime<Utc> {
     
 }
 
+impl ToBuffer for String {
+
+    fn to_buff(self) -> Vec<u8> {
+        self.as_bytes().to_vec()
+    }
+}
+
+impl FromBuffer for String {
+    
+    fn from_buff(buff: Vec<u8>) -> Self {
+        String::from_utf8_lossy(&buff).to_string()
+    }
+}
 
 #[cfg(test)]
 mod tests {

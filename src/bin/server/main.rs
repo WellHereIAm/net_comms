@@ -1,12 +1,16 @@
 extern crate lib;
-use std::{io::Read, net::{TcpListener, TcpStream}};
+use std::net::{TcpListener};
 
 use lib::*;
 
-use utils::{input, slice_to_array};
-
 
 fn main() {
+
+    let mtd = MetaData::new(MessageKind::Text, 5, 156468, 789153,
+         vec!["Fred".to_owned(), "John".to_owned(), "Lucy".to_owned()],
+          None);
+
+    println!("{}", mtd.to_ron_pretty(None));
 
     let socket = format!("{}:{}", ADDR, PORT);
     let listener = TcpListener::bind(socket).unwrap();
@@ -22,19 +26,4 @@ fn main() {
             Err(_) => todo!(),
         }
     }
-
-    // for stream in listener.incoming() {
-    //     match stream {
-    //         Ok(mut stream) => {
-    //             println!("Got connection.");
-    //             let msg = Message::new();
-    //             println!("Created empty message.");
-    //             Message::receive(&mut stream);
-    //             println!("Received message.");
-    //             println!("{:?}", msg);
-    //         },
-    //         Err(_) => todo!(),
-    //     }
-    // }
-    // input("");
 }

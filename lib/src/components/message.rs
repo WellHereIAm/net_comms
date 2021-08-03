@@ -1,8 +1,10 @@
 use std::{io::{Read, Write}, net::TcpStream};
 
+use serde::{Deserialize, Serialize};
+
 use crate::{FromBuffer, Packet, PacketKind, ToBuffer};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MessageKind {
     Empty,
     Request,
