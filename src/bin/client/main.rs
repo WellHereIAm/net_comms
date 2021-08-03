@@ -1,5 +1,5 @@
 extern crate lib;
-use std::{collections::HashMap, net::TcpStream};
+use std::{collections::HashMap, io::Write, net::TcpStream, thread::sleep};
 
 use lib::*;
 use utils::input;
@@ -8,22 +8,40 @@ use utils::input;
 
 fn main() {
 
-    let mut msg = Message::new();
-    msg.set_metadata(Packet::new(PacketKind::new_metadata(3, MessageKind::Text, 1, 2)));
-    msg.push_content(Packet::new(PacketKind::new_content("Hello from client I say.".to_string().as_bytes().to_vec())));
-    msg.push_content(Packet::new(PacketKind::End));
+   let mut msg = Message::new();
+   msg.set_metadata(Packet::new(PacketKind::new_metadata(2, MessageKind::Text, 1, 2)));
+   println!("{:?}", msg.metadata.clone().to_buff());
 
-    println!("{:?}", &msg);
-    
-    let socket = format!("{}:{}", ADDR, PORT);
-    
+   msg.push_content(Packet::new(PacketKind::new_content("Hello from client I say.".to_string().as_bytes().to_vec())));
+   
+
+   println!("{:?}", &msg);
+
+   let socket = format!("{}:{}", ADDR, PORT);
+
     match TcpStream::connect(socket) {
         Ok(mut stream) => {
-            println!("Successfully connected!");
-            msg.send(&mut stream);
+            msg.send(&mut stream);    
+        },            
+        Err(e) => {
+            println!("{}", e);
         },
-        Err(_) => todo!(),
     };
+
+
+
+    
+
+
+
+   //println!("{:?}", msg.metadata.clone().to_buff());
+   //println!("{:?}", msg.add_info.clone());
+   //println!("{:?}", msg.content.clone());
+   //
+   //
+   
+
+   //input("");
 
     //let user = get_user();
     //println!("{:?}", user);

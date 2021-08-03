@@ -24,7 +24,7 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 // Probably needs to be implemented somewhere else.
 impl ToBuffer for usize {
 
-    fn to_buff(&self) -> Vec<u8> {
+    fn to_buff(self) -> Vec<u8> {
         
         self.to_be_bytes().to_vec()
     }
@@ -45,7 +45,7 @@ impl FromBuffer for usize {
 
 impl ToBuffer for DateTime<Utc> {
 
-    fn to_buff(&self) -> Vec<u8> {
+    fn to_buff(self) -> Vec<u8> {
         (self.timestamp() as usize).to_buff()
     }
 }

@@ -14,9 +14,8 @@ type Id = usize;
 type Length = usize;
 type Content = Vec<u8>;
 
+// Change whole concept of metadata and additional info to one metadata json? Probably better choice after I make it work.
 #[derive(Debug, Clone)]
-
-// Change whole concept of metadata and additional info to one metadata json?
 pub enum PacketKind {
     Empty(Size, Content),
     MetaData(Length, MessageKind, Id, Id, DateTime<Utc>),
@@ -29,7 +28,7 @@ pub enum PacketKind {
 
 impl ToBuffer for PacketKind {
 
-    fn to_buff(&self) -> Vec<u8> {
+    fn to_buff(self) -> Vec<u8> {
 
         let mut buff: Vec<u8> = Vec::new();
 
@@ -125,12 +124,28 @@ impl PacketKind {
             MetaData(..) => 34 as usize,
             AddInfo(size, _) => *size,
             Content(size, _) => *size,
-            Request => 10 as usize,
-            End => 10 as usize,
-            Unknown => 10 as usize,
+            Request => 0 as usize,
+            End => 0 as usize,
+            Unknown => 0 as usize,
         };
 
         size
+    }
+
+    /// This returns just kind, data inside are invalid.
+    pub fn get_kind(&self) -> PacketKind {
+
+        let kind =  match self {
+            Empty(..) => Empty(0, Vec::new()),
+            MetaData(..) => PacketKind::new_metadata(0, MessageKind::Empty, 0, 0),
+            AddInfo(..) => AddInfo(0, Vec::new()),
+            Content(..) => Content(0, Vec::new()),
+            Request => Request,
+            End => End,
+            Unknown => Unknown,
+        };
+
+        kind
     }
 
     fn get_datetime() -> DateTime<Utc> {
@@ -152,10 +167,12 @@ impl PacketKind {
 // Implementation for Empty, AddInfo, Content.
 impl PacketKind {
 
-    pub fn get_content(&self) -> Result<Vec<u8>, PacketKindError> {
+    /// !!!
+    /// This method gets an ownership of self.
+    pub fn get_content(self) -> Result<Vec<u8>, PacketKindError> {
 
         if let Empty(_, content) | AddInfo(_, content) | Content(_, content) = self {
-            return Ok(content.clone());
+            return Ok(content);
         } else {
             return Err(PacketKindError {});
         }
@@ -224,15 +241,15 @@ impl std::fmt::Display for PacketKindError {
 
 impl std::error::Error for PacketKindError {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Packet {
     size: usize,
-    kind: PacketKind,
+    pub kind: PacketKind,
 }
 
 impl ToBuffer for Packet {
     
-    fn to_buff(&self) -> Vec<u8> {
+    fn to_buff(self) -> Vec<u8> {
         let mut buff: Vec<u8> = Vec::new();
         buff.extend(self.size.to_buff());
         buff.extend(self.kind.to_buff());
@@ -279,8 +296,10 @@ impl Packet {
         self.size
     }
 
-    pub fn get_contents(&self) -> PacketKind {
-        self.kind.clone()
+    /// !!!
+    /// This method gets an ownership of self.
+    pub fn get_contents(self) -> PacketKind {
+        self.kind
     }
 }
 

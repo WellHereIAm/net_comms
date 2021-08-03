@@ -1,9 +1,9 @@
 extern crate lib;
-use std::net::{TcpListener, TcpStream};
+use std::{io::Read, net::{TcpListener, TcpStream}};
 
 use lib::*;
 
-use utils::slice_to_array;
+use utils::{input, slice_to_array};
 
 
 fn main() {
@@ -15,12 +15,26 @@ fn main() {
     for stream in listener.incoming() {
         match stream {
             Ok(mut stream) => {
-                println!("Got connection.");
-                let msg = Message::new();
-                Message::receive(&mut stream);
-                println!("{:?}", msg);
+                let msg = Message::receive(&mut stream);
+                println!("{:?}", msg); 
+                break;
             },
             Err(_) => todo!(),
         }
     }
+
+    // for stream in listener.incoming() {
+    //     match stream {
+    //         Ok(mut stream) => {
+    //             println!("Got connection.");
+    //             let msg = Message::new();
+    //             println!("Created empty message.");
+    //             Message::receive(&mut stream);
+    //             println!("Received message.");
+    //             println!("{:?}", msg);
+    //         },
+    //         Err(_) => todo!(),
+    //     }
+    // }
+    // input("");
 }

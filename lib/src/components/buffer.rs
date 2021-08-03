@@ -1,7 +1,8 @@
 pub trait ToBuffer {    
 
-    // This should not be borrow as now it needs to clone contents.
-    fn to_buff(&self) -> Vec<u8>;
+    /// !!!
+    /// This method gets an ownership of self.
+    fn to_buff(self) -> Vec<u8>;
 }
 
 pub trait FromBuffer {
