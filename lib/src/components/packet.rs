@@ -15,12 +15,8 @@ use crate::{FromBuffer, MessageKind, ToBuffer};
 
 use PacketKind::*;
 
-type Size = usize;
-type Id = usize;
-type Length = usize;
-type Content = Vec<u8>;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetaData {
     pub message_kind: MessageKind,
     pub message_length: usize,
@@ -30,8 +26,6 @@ pub struct MetaData {
     pub recipients: Vec<String>,
     pub file_kind: Option<String>,
 }
-
-
 
 impl ToBuffer for MetaData {
 
@@ -64,6 +58,21 @@ impl MetaData {
             recipient_id,
             recipients,
             file_kind,
+        }
+    }
+
+    pub fn new_empty() -> Self {
+
+        let datetime = Self::datetime().to_buff();
+
+        MetaData {
+            message_kind: MessageKind::Empty,
+            message_length: 1,
+            datetime,
+            author_id: 0,
+            recipient_id: 0,
+            recipients: vec![],
+            file_kind: None,
         }
     }
 
@@ -107,13 +116,16 @@ impl MetaData {
     }
 }
 
+type Size = usize;
+type Content = Vec<u8>;
+
 // Change whole concept of metadata and additional info to one RON.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PacketKind {
-    Empty(Size, Content),
-    MetaData(Size, MessageKind, Id, Id, DateTime<Utc>),
-    AddInfo(Size, Content),
-    Content(Size, Content),
+
+    Empty(Size, Content), // I have no idea why, but here content is just vector full of 0_u8.
+    MetaData(Size, Content), // Content is MetaData.to_buff()
+    Content(Size, Content), // Content is, well just content. Depends on message kind.
     Request,
     End,
     Unknown,
@@ -130,27 +142,20 @@ impl ToBuffer for PacketKind {
                 buff.extend([0_u8, 0_u8]);
                 buff.extend(content);
             },
-            MetaData(length, msg_kind, author_id, recipient_id, datetime) => {
+            MetaData(_, content) => {
                 buff.extend([1_u8, 0_u8]);
-                buff.extend(length.to_buff());
-                buff.extend(msg_kind.to_buff());
-                buff.extend(author_id.to_buff());
-                buff.extend(recipient_id.to_buff());
-                buff.extend(datetime.to_buff());
+                buff.extend(content);
+
             },
-            AddInfo(_, content) => {
+            Content(_, content) => {
                 buff.extend([2_u8, 0_u8]);
                 buff.extend(content);
             },
-            Content(_, content) => {
-                buff.extend([3_u8, 0_u8]);
-                buff.extend(content);
-            },
             Request => {
-                buff.extend([4_u8, 0_u8]);
+                buff.extend([3_u8, 0_u8]);
             },
             End => {
-                buff.extend([5_u8, 0_u8]);
+                buff.extend([4_u8, 0_u8]);
             },
             Unknown => {
                 buff.extend([255_u8, 0_u8]);
@@ -171,17 +176,10 @@ impl FromBuffer for PacketKind {
         
         let kind = match kind[0] {
             0 => PacketKind::Empty(size, contents.to_vec()),
-            1 => PacketKind::MetaData(
-                usize::from_buff(contents[0..8].to_vec()),
-                MessageKind::from_buff(contents[8..10].to_vec()),
-                usize::from_buff(contents[10..18].to_vec()),
-                usize::from_buff(contents[18..26].to_vec()),
-                DateTime::<Utc>::from_buff(contents[26..34].to_vec()),
-            ),
-            2 => PacketKind::AddInfo(size, contents.to_vec()),
-            3 => PacketKind::Content(size, contents.to_vec()),
-            4 => PacketKind::Request,
-            5 => PacketKind::End,
+            1 => PacketKind::MetaData(size, contents.to_vec()),
+            2 => PacketKind::Content(size, contents.to_vec()),
+            3 => PacketKind::Request,
+            4 => PacketKind::End,
             _ => PacketKind::Unknown,            
         };
 
@@ -198,12 +196,14 @@ impl PacketKind {
         Empty(size, vec![0_u8; size])
     }
 
-    pub fn new_metadata(length: usize, msg_kind: MessageKind, author_id: usize, recipient_id: usize) -> Self {
-        MetaData(length, msg_kind, author_id, recipient_id, PacketKind::get_datetime())
-    }
+    pub fn new_metadata(metadata: MetaData) -> Self {
 
-    pub fn new_add_info(content: Vec<u8>) -> Self {
-        AddInfo(content.len(), content)
+        let content = metadata.to_buff();
+        let size = content.len();
+
+        println!("metadata size: {} {:?}", &size, &size.to_buff());
+
+        MetaData(size, content)
     }
 
     pub fn new_content(content: Vec<u8>) -> Self {
@@ -214,8 +214,7 @@ impl PacketKind {
 
         let size = match self {
             Empty(size, _) => *size,
-            MetaData(..) => 34 as usize,
-            AddInfo(size, _) => *size,
+            MetaData(size, _) => *size,
             Content(size, _) => *size,
             Request => 0 as usize,
             End => 0 as usize,
@@ -225,13 +224,12 @@ impl PacketKind {
         size
     }
 
-    /// This returns just kind, data inside are invalid.
+    /// This returns just enum variant, data inside are invalid.
     pub fn get_kind(&self) -> PacketKind {
 
         let kind =  match self {
             Empty(..) => Empty(0, Vec::new()),
-            MetaData(..) => PacketKind::new_metadata(0, MessageKind::Empty, 0, 0),
-            AddInfo(..) => AddInfo(0, Vec::new()),
+            MetaData(..) => MetaData(0, Vec::new()),
             Content(..) => Content(0, Vec::new()),
             Request => Request,
             End => End,
@@ -257,14 +255,14 @@ impl PacketKind {
     
 }
 
-// Implementation for Empty, AddInfo, Content.
+// Implementation for Empty, MetaData, Content.
 impl PacketKind {
 
     /// !!!
     /// This method gets an ownership of self.
     pub fn get_content(self) -> Result<Vec<u8>, PacketKindError> {
 
-        if let Empty(_, content) | AddInfo(_, content) | Content(_, content) = self {
+        if let Empty(_, content) | MetaData(_, content) | Content(_, content) = self {
             return Ok(content);
         } else {
             return Err(PacketKindError {});
@@ -275,50 +273,59 @@ impl PacketKind {
 // Implementation for MetaData variant.
 impl PacketKind {
 
-    pub fn get_message_length(&self) -> Result<usize, PacketKindError> {
-
-        if let MetaData(length, ..) = self {
-            return Ok(*length);
+    pub fn get_metadata(&self) -> Result<MetaData, PacketKindError> {
+        if let MetaData(size, content) = self {
+            Ok(MetaData::from_buff(content.to_vec()))            
         } else {
-            return Err(PacketKindError {});
+            return Err(PacketKindError {});        
         }
     }
 
-    pub fn get_message_kind(&self) -> Result<MessageKind, PacketKindError> {
+    // Those are probably not necessary.
+    // pub fn get_message_length(&self) -> Result<usize, PacketKindError> {
 
-        if let MetaData(_, msg_kind, _, _, _) = self {
-            return Ok(msg_kind.clone());
-        } else {
-            return Err(PacketKindError {});
-        }
-    }
+    //     if let MetaData(length, ..) = self {
+    //         return Ok(*length);
+    //     } else {
+    //         return Err(PacketKindError {});
+    //     }
+    // }
 
-    pub fn get_author_id(&self) -> Result<usize, PacketKindError> {
+    // pub fn get_message_kind(&self) -> Result<MessageKind, PacketKindError> {
 
-        if let MetaData(_, _, author_id, _, _) = self {
-            return Ok(*author_id);
-        } else {
-            return Err(PacketKindError {});
-        }
-    }
+    //     if let MetaData(_, msg_kind, _, _, _) = self {
+    //         return Ok(msg_kind.clone());
+    //     } else {
+    //         return Err(PacketKindError {});
+    //     }
+    // }
 
-    pub fn get_recipient_id(&self) -> Result<usize, PacketKindError> {
+    // pub fn get_author_id(&self) -> Result<usize, PacketKindError> {
 
-        if let MetaData(_, _, _, recipient_id, _) = self {
-            return Ok(*recipient_id);
-        } else {
-            return Err(PacketKindError {});
-        }
-    }
+    //     if let MetaData(_, _, author_id, _, _) = self {
+    //         return Ok(*author_id);
+    //     } else {
+    //         return Err(PacketKindError {});
+    //     }
+    // }
+
+    // pub fn get_recipient_id(&self) -> Result<usize, PacketKindError> {
+
+    //     if let MetaData(_, _, _, recipient_id, _) = self {
+    //         return Ok(*recipient_id);
+    //     } else {
+    //         return Err(PacketKindError {});
+    //     }
+    // }
     
-    pub fn get_time(&self) -> Result<DateTime<Utc>, PacketKindError> {
+    // pub fn get_time(&self) -> Result<DateTime<Utc>, PacketKindError> {
 
-        if let MetaData(.., datetime) = self {
-            return Ok(*datetime);
-        } else {
-            return Err(PacketKindError {});
-        }
-    }
+    //     if let MetaData(.., datetime) = self {
+    //         return Ok(*datetime);
+    //     } else {
+    //         return Err(PacketKindError {});
+    //     }
+    // }
     
 }
 
@@ -334,7 +341,7 @@ impl std::fmt::Display for PacketKindError {
 
 impl std::error::Error for PacketKindError {}
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Packet {
     size: usize,
     pub kind: PacketKind,

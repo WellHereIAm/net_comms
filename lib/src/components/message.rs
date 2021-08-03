@@ -2,7 +2,7 @@ use std::{io::{Read, Write}, net::TcpStream};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{FromBuffer, Packet, PacketKind, ToBuffer};
+use crate::{FromBuffer, MetaData, Packet, PacketKind, ToBuffer};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MessageKind {
@@ -44,12 +44,12 @@ impl FromBuffer for MessageKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Message {
     pub kind: MessageKind,
-    pub metadata: Packet,
-    pub add_info: Vec<Packet>,
+    pub metadata: MetaData,
     pub content: Vec<Packet>,
+    pub end_data: Packet,
 }
 
 impl Message {
@@ -57,55 +57,66 @@ impl Message {
     pub fn new() -> Self {
         Message {
             kind: MessageKind::Unknown,
-            metadata: Packet::new_empty(),
-            add_info: Vec::new(),
+            metadata: MetaData::new_empty(),
             content: Vec::new(),
+            end_data: Packet::new_empty(),
         }
     }
 
     pub fn send(self, stream: &mut TcpStream) {
 
-        stream.write(&self.metadata.clone().to_buff()).unwrap();
-        println!("metadata to buff: {:?}", &self.metadata.to_buff());
+        let metadata_packet = Packet::new(PacketKind::new_metadata(self.metadata.clone()));
 
-        for packet in self.add_info {
-            stream.write(&packet.clone().to_buff()).unwrap();
-            println!("add_info to buff: {:?}", &packet.to_buff());
-        }
+        stream.write(&metadata_packet.to_buff()).unwrap();
+        println!("metadata to buff: {:?}", &self.metadata.to_buff());
         
         for packet in self.content {
             stream.write(&packet.clone().to_buff()).unwrap();
             println!("content to buff: {:?}", &packet.to_buff());  
         }
+
+        stream.write(&self.end_data.clone().to_buff()).unwrap();
+        println!("end_data to buff: {:?}", &self.end_data.to_buff()); 
     }
 
     // Refractor this.
     pub fn receive(stream: &mut TcpStream) -> Self {
 
+        println!("receive()\n");
+
         let mut msg = Message::new();
         
-        let mut packet_id = 0;
-
         loop {
+
+            println!("Loop start\n");
+            
             let mut size_buff = vec![0_u8; 8];
             stream.read_exact(&mut size_buff).unwrap();
+
+            // let mut kind_buff = vec![0_u8; 2];
+            // stream.read_exact(&mut kind_buff).unwrap();
+
+            println!("Size buffer after read: {:?}", &size_buff);
+
             let size = usize::from_buff(size_buff.clone());
             let mut buff = vec![0_u8; size - 8];
 
-            packet_id += 1;
-
             stream.read_exact(&mut buff).unwrap();
+
+            println!("Buffer after read: {:?}", &buff);
+
             size_buff.extend(buff);
 
-            let packet = Packet::from_buff(size_buff);
+            println!("Buffer after whole read: {:?}", &size_buff);
 
+            let packet = Packet::from_buff(size_buff);
+            println!("{:?}", &packet);
+
+            // I would like change kind to private later.
             match packet.kind {
                 crate::PacketKind::Empty(..) => {},
                 crate::PacketKind::MetaData(..) => {
-                    msg.set_metadata(packet);
-                },
-                crate::PacketKind::AddInfo(..) => {
-                    msg.push_add_info(packet);
+                    msg.set_metadata(packet.kind.get_metadata().unwrap()); // That is just stupid, isn´t it.
                 },
                 crate::PacketKind::Content(..) => {
                     msg.push_content(packet);
@@ -114,40 +125,31 @@ impl Message {
                     println!("Request");
                 },
                 crate::PacketKind::End => {
-                    msg.push_content(packet);
+                    msg.set_end_data(packet);
+                    break;
                 },
                 crate::PacketKind::Unknown => {
                     println!("Unknown.")
                 },
             }  
-            
-            if let PacketKind::MetaData(length, ..) = msg.metadata.kind {
-                if packet_id == length {
-                    break;
-                }
-            }
+            println!("{:?}", &msg);
         }         
 
         msg
     }
 
-    pub fn set_kind(&mut self, kind: MessageKind) {
-        self.kind = kind
-    }
+    pub fn set_metadata(&mut self, metadata: MetaData) {
 
-    pub fn set_metadata(&mut self, metadata: Packet) {
-        if let PacketKind::MetaData(_, kind, ..) = metadata.kind.clone() {
-            self.kind = kind;
-        }
-        self.metadata = metadata
-    }
-
-    pub fn push_add_info(&mut self, add_info: Packet) {
-        self.add_info.push(add_info)
+        self.kind = metadata.message_kind.clone();
+        self.metadata = metadata;
     }
 
     pub fn push_content(&mut self, content: Packet) {
-        self.content.push(content)
+        self.content.push(content);
+    }
+
+    pub fn set_end_data(&mut self, end_data: Packet) {
+        self.end_data = end_data;
     }
 
     pub fn get_content(self) ->  Vec<u8> {

@@ -8,14 +8,23 @@ use utils::input;
 
 fn main() {
 
-   let mut msg = Message::new();
-   msg.set_metadata(Packet::new(PacketKind::new_metadata(2, MessageKind::Text, 1, 2)));
-   println!("{:?}", msg.metadata.clone().to_buff());
+    let mut msg = Message::new();
 
-   msg.push_content(Packet::new(PacketKind::new_content("Hello from client I say.".to_string().as_bytes().to_vec())));
+    let mtd = MetaData::new(MessageKind::Text,3, 1, 0,
+         vec!["Jakub".to_owned()],
+          None);
+    msg.set_metadata(mtd);
+    
+    let content_packet = Packet::new(PacketKind::new_content("Hello Jakub, how are you?".to_string().to_buff()));
+    msg.push_content(content_packet);
+
+    let end_packet = Packet::new(PacketKind::End);
+    msg.set_end_data(end_packet);
    
-
-   println!("{:?}", &msg);
+    let config = ron::ser::PrettyConfig::new()
+                                                    .with_depth_limit(4)
+                                                    .with_decimal_floats(true); 
+   println!("{}", ron::ser::to_string_pretty(&msg, config).unwrap());
 
    let socket = format!("{}:{}", ADDR, PORT);
 
