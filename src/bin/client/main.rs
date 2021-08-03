@@ -5,8 +5,10 @@ use lib::*;
 use utils::input;
 
 
-
+extern crate library;
 fn main() {
+
+    let packet = library::packet::MetaData::new_empty();
 
     let mut msg = Message::new();
 
