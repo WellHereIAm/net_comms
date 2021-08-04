@@ -83,9 +83,9 @@ impl Message {
                     println!("Empty");
                 },
                 PacketKind::MetaData(..) => {
-                    let metadata = MetaData::from_buff(packet.get_kind_owned().to_buff());
-                    msg.set_metadata(metadata)
-                    // msg.set_metadata(packet.kind.get_metadata().unwrap()); // CAN I USE UNWRAP?
+                    // let metadata = MetaData::from_buff(packet.get_kind_owned().to_buff());
+                    // msg.set_metadata(metadata)
+                    msg.set_metadata(packet.kind.get_metadata().unwrap()); // CAN I USE UNWRAP?
                 },
                 PacketKind::Content(..) => {
                     msg.push_content(packet);

@@ -1,12 +1,34 @@
 //! Library for project of network communication using TCP protocol to send text messages and files.
 //! Also implements convenient wrappers  of ToBuffer and FromBuffer for some types used in this library.
 
+/// Module used to handle user input.
+// This module will be probably completely refactored. Does not have documentation.
+pub mod command;
 /// Module containing FromBuffer and ToBuffer traits.
 pub mod buffer;
-/// Module containing MessageKind and Message.
+/// Module used to handle Message.
 pub mod message;
-/// Module containing Packet and all it´s parts.
+/// Module used to handle packets.
 pub mod packet;
+/// Module used to handle request like messages.
+// This module will be probably completely refactored or even deleted. Does not have documentation.
+pub mod request;
+/// Module used to handle user.
+// This module will be probably completely refactored. Does not have documentation.
+pub mod user;
+/// Shared configurations for both server and client.
+pub mod config;
+
+/// Module to simplify development, so I can use use library::prelude::*, most likely will be deleted later.
+pub mod prelude {
+    pub use crate::command::{self, *};
+    pub use crate::buffer::{self, *};
+    pub use crate::message::{self, *};
+    pub use crate::packet::{self, *};
+    pub use crate::request::{self, *};
+    pub use crate::user::{self, *};
+    pub use crate::config::{self, *};
+}
 
 use chrono::{DateTime, NaiveDateTime, Utc};
 

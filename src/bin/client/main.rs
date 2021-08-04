@@ -1,13 +1,12 @@
-extern crate lib;
 use std::{collections::HashMap, io::Write, net::TcpStream, thread::sleep};
 
-use lib::*;
 use utils::input;
 
 
 extern crate library;
+use library::prelude::*;
 fn main() {
-
+    
     let packet = library::packet::MetaData::new_empty();
 
     let mut msg = Message::new();
@@ -38,12 +37,6 @@ fn main() {
             println!("{}", e);
         },
     };
-
-
-
-    
-
-
 
    //println!("{:?}", msg.metadata.clone().to_buff());
    //println!("{:?}", msg.add_info.clone());
@@ -89,75 +82,72 @@ fn main() {
 }
 
 // Later actually establish connection with the server.
-fn get_id(rqst: RequestKind) -> Result<[u8; 4], RequestErr> {
+// fn get_id(rqst: RequestKind) -> Result<[u8; 4], RequestErr> {
 
-    return Ok([1, 1, 1, 1]);
+//     return Ok([1, 1, 1, 1]);
 
-    let socket = format!("{}:{}", ADDR, PORT);
+//     let socket = format!("{}:{}", ADDR, PORT);
     
-    let stream = match TcpStream::connect(socket) {
-        Ok(stream) => stream,
-        Err(_) => todo!(),
-    };
-}
+//     let stream = match TcpStream::connect(socket) {
+//         Ok(stream) => stream,
+//         Err(_) => todo!(),
+//     };
+// }
 
 // Returns User checked by server.
 // There is an inner loop until function can return valid user.
-fn get_user() -> User {
+// fn get_user() -> User {
 
-    use lib::RequestKind::GetId;
+//     use lib::RequestKind::GetId;
     
-    loop {
-        let mut is_first = true;
-        let cmd = get_user_cmd(is_first);
-        is_first = false;
+//     loop {
+//         let mut is_first = true;
+//         let cmd = get_user_cmd(is_first);
+//         is_first = false;
 
-        let user: User;
+//         let user: User;
 
-        match cmd.process_cmd() {
-            Ok(cmd) => {
-                // logic to tell wrong usage of commands is in the process_cmd function. Like register name password without repeating password etc.
-                match cmd {
-                    Command::Register(user_unchecked) => {
+//         match cmd.process_cmd() {
+//             Ok(cmd) => {
+//                 // logic to tell wrong usage of commands is in the process_cmd function. Like register name password without repeating password etc.
+//                 match cmd {
+//                     Command::Register(user_unchecked) => {
 
-                        match get_id(GetId(Box::new(RequestKind::Register(user_unchecked.clone())))) {
-                            Ok(id) => {
-                                user = User::new(id, user_unchecked.username, user_unchecked.password);
-                                return user;
-                            },
-                            Err(_) => {
-                                println!("Error case of get_id using register")
-                            },
-                    }
-                },
-                    Command::Login(user_unchecked) => {
+//                         match get_id(GetId(Box::new(RequestKind::Register(user_unchecked.clone())))) {
+//                             Ok(id) => {
+//                                 user = User::new(id, user_unchecked.username, user_unchecked.password);
+//                                 return user;
+//                             },
+//                             Err(_) => {
+//                                 println!("Error case of get_id using register")
+//                             },
+//                     }
+//                 },
+//                     Command::Login(user_unchecked) => {
 
-                        match get_id(GetId(Box::new(RequestKind::Login(user_unchecked.clone())))) {
-                            Ok(id) => {
-                                user = User::new(id, user_unchecked.username, user_unchecked.password);
-                                return user;
-                            },
-                            Err(_) => {
-                                println!("Error case of get_id using login")
-                            },
-                    }
-                    },
-                    _ => {
-                        println!("Incorrect command.");
-                        continue;
-                    },
-                }
+//                         match get_id(GetId(Box::new(RequestKind::Login(user_unchecked.clone())))) {
+//                             Ok(id) => {
+//                                 user = User::new(id, user_unchecked.username, user_unchecked.password);
+//                                 return user;
+//                             },
+//                             Err(_) => {
+//                                 println!("Error case of get_id using login")
+//                             },
+//                     }
+//                     },
+//                     _ => {
+//                         println!("Incorrect command.");
+//                         continue;
+//                     },
+//                 }
 
-            },
-            Err(_) => {
-                println!("Error case of process_cmd() inside of get_user()")
-            },
-        };
-    }
-
-
-        
-}
+//             },
+//             Err(_) => {
+//                 println!("Error case of process_cmd() inside of get_user()")
+//             },
+//         };
+//     }        
+// }
 
 fn get_user_cmd(is_first: bool) -> CommandRaw {
 

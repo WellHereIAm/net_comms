@@ -133,4 +133,15 @@ impl PacketKind {
             return Err(PacketKindError {});
         }
     }
+
+
+    /// Temporary method to allow Message::receive() work.
+    pub fn get_metadata(&self) -> Result<MetaData, PacketKindError> {
+        if let MetaData(size, content) = self {
+            Ok(MetaData::from_buff(content.to_vec()))            
+        } else {
+            return Err(PacketKindError {});        
+        }
+    }
+
 }

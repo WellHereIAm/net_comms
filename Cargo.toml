@@ -10,8 +10,10 @@ edition = "2018"
 
 [dependencies]
 library = {path = "library"}
-lib = {path = "lib"}
+
 
 utils = {git = "https://github.com/WellHereIAm/utils.git", branch = "main"}
+
+# Those are here only for debugging purposes.
 serde = { version = "1.0", features = ["derive"] }
 ron = "*"

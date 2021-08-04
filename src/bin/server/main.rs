@@ -1,8 +1,6 @@
-extern crate lib;
 use std::net::{TcpListener};
 
-use lib::*;
-
+use library::prelude::*;
 
 fn main() {
     let socket = format!("{}:{}", ADDR, PORT);

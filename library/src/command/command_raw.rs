@@ -1,44 +1,12 @@
-
 use utils::input;
 
-use crate::{components::user::UserUnchecked,  MessageKind};
-
-pub enum Command {
-    Register(UserUnchecked),
-    Login(UserUnchecked),
-    Yes,
-    No,
-    Send(MessageKind ,Vec<String>, Vec<u8>),    // Send commands have also info about message kind, recipients and content
-    Unknown
-}
-
-#[derive(Debug)]
-pub struct CommandError;
-
-impl std::fmt::Display for CommandError {
-
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "CommandError - TODO")
-    }
-}
-
-impl std::error::Error for CommandError {}
+use crate::command::{Command, CommandError};
+use crate::user::UserUnchecked;
+use crate::message::MessageKind;
 
 pub struct CommandRaw{
     vec: Vec<String>,
 }
-
-#[derive(Debug)]
-pub struct CommandRawError;
-
-impl std::fmt::Display for CommandRawError {
-
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "CommandRawError - TODO")
-    }
-}
-
-impl std::error::Error for CommandRawError {}
 
 impl CommandRaw {
 
@@ -145,3 +113,15 @@ impl CommandRaw {
         ))
     }
 }
+
+#[derive(Debug)]
+pub struct CommandRawError;
+
+impl std::fmt::Display for CommandRawError {
+
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "CommandRawError - TODO")
+    }
+}
+
+impl std::error::Error for CommandRawError {}
