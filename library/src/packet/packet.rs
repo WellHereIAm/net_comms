@@ -8,7 +8,7 @@ use crate::buffer::{ToBuffer, FromBuffer};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Packet {
     size: usize,    // Size of whole packet with contents in number of bytes.
-    pub kind: PacketKind,   // Kind of packet, also holds all packet data, except the whole packet size.
+    kind: PacketKind,   // Kind of packet, also holds all packet data, except the whole packet size.
 }
 
 impl ToBuffer for Packet {
@@ -71,7 +71,7 @@ impl Packet {
     }
 
     /// Returns just kind of PacketKind, data inside are invalid.
-    /// Wrapper around PacketKind::get_kind().
+    /// Wrapper around PacketKind::kind().
     pub fn kind(&self) -> PacketKind {
         self.kind.kind()
     }

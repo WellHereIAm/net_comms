@@ -80,14 +80,25 @@ impl Message {
     /// and sends a Message through given stream.
     pub fn send(self, stream: &mut TcpStream) {
 
+        // Crates multiple metadata packets if necessary and sends them through stream.
+        let metadata_buff = self.metadata.to_buff();
+        let metadata_buff_split = Self::split_to_max_packet_size(metadata_buff);
+        let metadata_len = metadata_buff_split.len();
 
-        // Create a metadata_packet from metadata.
-        let metadata_packet = Packet::new(PacketKind::new_metadata(self.metadata.clone()));
-
-        // Write metadata_packet to stream.
-        stream.write(&metadata_packet.to_buff()).unwrap();
-        println!("metadata to buff: {:?}", &self.metadata.to_buff());
-        
+        for (id, buff) in metadata_buff_split.into_iter().enumerate() {
+            let packet: Packet;
+            // Because enumerate starts at 0, it´s necessary to add 1 to it.
+            if id + 1 == metadata_len {
+                println!("metadata end");
+                packet = Packet::new(PacketKind::new_metadata_end(buff));
+            } else {
+                println!("metadata");
+                packet = Packet::new(PacketKind::new_metadata(buff));
+            }
+            println!("{:?}", &packet);
+            stream.write(&packet.to_buff()).unwrap();
+        }
+                
         // Write all content packets to stream.
         for packet in self.content {
             stream.write(&packet.to_buff()).unwrap();
@@ -103,6 +114,7 @@ impl Message {
 
         // Create new empty Message.
         let mut msg = Message::new();
+        let mut metadata_buff = Vec::new(); 
         
         // Loop to read all packets.
         loop {
@@ -122,15 +134,19 @@ impl Message {
             // Create a packet from buffer.
             let packet = Packet::from_buff(buff);
 
-            // I would like change kind to private later.
             // Get a packet kind and modify msg based on that. 
             match packet.kind() {
                 PacketKind::Empty => {
                     println!("Empty");
                 },
                 PacketKind::MetaData(..) => {
-                    msg.set_metadata(MetaData::from_buff(packet.kind.content().unwrap())); // CAN I USE UNWRAP?
+                    metadata_buff.extend(packet.kind_owned().content().unwrap());
                 },
+                PacketKind::MetaDataEnd(..) => {
+                    metadata_buff.extend(packet.kind_owned().content().unwrap());
+                    println!("{}", String::from_utf8(metadata_buff.clone()).unwrap());
+                    msg.set_metadata(MetaData::from_buff(metadata_buff.clone())); // I DO NOT LIKE USING CLONE, BUT DON´T KNOW HOW TO DO IT WITHOUT IT.
+                }
                 PacketKind::Content(..) => {
                     msg.push_content(packet);
                 },
@@ -145,8 +161,6 @@ impl Message {
                     println!("Unknown.")
                 },
             }  
-            // Just debug.
-            println!("{:?}", &msg);
         }         
 
         msg
