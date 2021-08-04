@@ -80,6 +80,7 @@ impl Message {
     /// and sends a Message through given stream.
     pub fn send(self, stream: &mut TcpStream) {
 
+
         // Create a metadata_packet from metadata.
         let metadata_packet = Packet::new(PacketKind::new_metadata(self.metadata.clone()));
 
