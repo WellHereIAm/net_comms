@@ -1,7 +1,10 @@
 {
     "cSpell.words": [
+        "Comms",
         "chrono",
         "datetime",
-        "rqst"
+        "itertools",
+        "rqst",
+        "trunc"
     ]
 }

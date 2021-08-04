@@ -1,11 +1,15 @@
 //! Library for project of network communication using TCP protocol to send text messages and files.
 //! Also implements convenient wrappers  of ToBuffer and FromBuffer for some types used in this library.
 
+
+/// Module containing FromBuffer and ToBuffer traits.
+pub mod buffer;
 /// Module used to handle user input.
 // This module will be probably completely refactored. Does not have documentation.
 pub mod command;
-/// Module containing FromBuffer and ToBuffer traits.
-pub mod buffer;
+/// Will be used for custom errors in the library.
+// USE THIS FOR ALL CUSTOM ERRORS IN THE LIBRARY.
+pub mod error;
 /// Module used to handle Message.
 pub mod message;
 /// Module used to handle packets.
@@ -23,6 +27,7 @@ pub mod config;
 pub mod prelude {
     pub use crate::command::{self, *};
     pub use crate::buffer::{self, *};
+    pub use crate::error::{self, *};
     pub use crate::message::{self, *};
     pub use crate::packet::{self, *};
     pub use crate::request::{self, *};

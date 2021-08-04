@@ -2,6 +2,7 @@ use std::net::{TcpListener};
 
 use library::prelude::*;
 
+/// Server now listens for only one message, then the process will end.
 fn main() {
     let socket = format!("{}:{}", ADDR, PORT);
     let listener = TcpListener::bind(socket).unwrap();

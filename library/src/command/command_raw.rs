@@ -4,6 +4,8 @@ use crate::command::{Command, CommandError};
 use crate::user::UserUnchecked;
 use crate::message::MessageKind;
 
+
+/// CommandRaw holds a vector of strings, parts of inputted command.
 pub struct CommandRaw{
     vec: Vec<String>,
 }
@@ -15,7 +17,7 @@ impl CommandRaw {
         T: std::fmt::Display {
 
 
-    // Maybe later change input to macro so it won´t be so ugly.
+    // Maybe later change input to macro, so it won´t be so ugly.
     let cmd = match msg {
         Some(msg) => {
             let cmd = input(msg).unwrap()
@@ -106,10 +108,15 @@ impl CommandRaw {
         let kind = MessageKind::Text; // Later deduct kind based of the content
         let recipients = vec![cmd.vec[1].clone()]; // Later process it to remove parentheses to allow multiple receivers.
         let content = Vec::from(cmd.vec[2].as_bytes());
+
+        let author_id = 1; // LATER GET DYNAMIC IDS
+        let file_name = None; // GET THIS DYNAMICALLY.
         Ok(Command::Send(
             kind,
+            author_id,
             recipients,
             content,
+            file_name,
         ))
     }
 }

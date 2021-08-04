@@ -9,4 +9,5 @@ edition = "2018"
 serde = { version = "1.0", features = ["derive"] }
 chrono = "0.4.19"
 ron = "*"
+itertools = "0.10.0"
 utils = {git = "https://github.com/WellHereIAm/utils.git", branch = "main"}

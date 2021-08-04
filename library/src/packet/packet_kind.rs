@@ -53,15 +53,18 @@ impl FromBuffer for PacketKind {
     fn from_buff(buff: Vec<u8>) -> Self {
 
         let kind = &buff[0..2];
-        let size = buff.len();
-        let contents = &buff[2..size];
+        // Here is necessary to get whole buffer size,
+        // but when size is written to PacketKind we need to remove 2 for kind.
+        let buffer_size = buff.len();  
+        let content_size = buffer_size - 2;    // Minus two bytes which describe kind.
+        let contents = &buff[2..buffer_size];
         
         // First number in kind describes a PackedKind variant,
         // Second number can describe some variance inside a PackedKind variant.
         let kind = match kind[0] {
             0 => PacketKind::Empty,
-            1 => PacketKind::MetaData(size, contents.to_vec()),
-            2 => PacketKind::Content(size, contents.to_vec()),
+            1 => PacketKind::MetaData(content_size, contents.to_vec()),
+            2 => PacketKind::Content(content_size, contents.to_vec()),
             3 => PacketKind::Request,
             4 => PacketKind::End,
             _ => PacketKind::Unknown,            
@@ -92,7 +95,7 @@ impl PacketKind {
     }
     
     /// Returns a size in number of bytes of contents, not whole packet.
-    pub fn get_size(&self) -> usize {
+    pub fn size(&self) -> usize {
 
         // Variants without data inside returns as information about kind is not part of contents.
         let size = match self {
@@ -108,7 +111,7 @@ impl PacketKind {
     }
 
     /// Returns just kind of PacketKind, data inside are invalid.
-    pub fn get_kind(&self) -> PacketKind {
+    pub fn kind(&self) -> PacketKind {
 
         let kind =  match self {
             Empty => Empty,
@@ -125,7 +128,7 @@ impl PacketKind {
     /// This method takes an ownership of self
     /// and returns content wrapped in Ok() if called on PacketKind::MetaData or PacketKind::Content,
     /// otherwise returns PacketKindError.
-    pub fn get_content(self) -> Result<Vec<u8>, PacketKindError> {
+    pub fn content(self) -> Result<Vec<u8>, PacketKindError> {
 
         if let MetaData(_, content) | Content(_, content) = self {
             return Ok(content);
@@ -136,7 +139,7 @@ impl PacketKind {
 
 
     /// Temporary method to allow Message::receive() work.
-    pub fn get_metadata(&self) -> Result<MetaData, PacketKindError> {
+    pub fn metadata(&self) -> Result<MetaData, PacketKindError> {
         if let MetaData(size, content) = self {
             Ok(MetaData::from_buff(content.to_vec()))            
         } else {

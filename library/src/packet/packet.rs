@@ -48,7 +48,7 @@ impl Packet {
         // Size of size field which is always 8.
         // Size of PacketKind which is always 2.
         // Size of data inside PacketKind which size is dynamic.
-        let size = kind.get_size() + 10;
+        let size = kind.size() + 10;
 
         Packet {
             size,
@@ -66,19 +66,19 @@ impl Packet {
     }
     
     /// Returns size of packet.
-    pub fn get_size(&self) -> usize {
+    pub fn size(&self) -> usize {
         self.size
     }
 
     /// Returns just kind of PacketKind, data inside are invalid.
     /// Wrapper around PacketKind::get_kind().
-    pub fn get_kind(&self) -> PacketKind {
-        self.kind.get_kind()
+    pub fn kind(&self) -> PacketKind {
+        self.kind.kind()
     }
 
     /// This method takes an ownership of self
     /// and returns PacketKind with valid data inside.
-    pub fn get_kind_owned(self) -> PacketKind {
+    pub fn kind_owned(self) -> PacketKind {
         self.kind
     }
 }

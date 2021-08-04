@@ -7,7 +7,7 @@ pub enum Command {
     Login(UserUnchecked),
     Yes,
     No,
-    Send(MessageKind ,Vec<String>, Vec<u8>),    // Send commands have also info about message kind, recipients and content
+    Send(MessageKind, usize, Vec<String>, Vec<u8>, Option<String>),    // Send commands have also info about message kind, recipients and content
     Unknown
 }
 

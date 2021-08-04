@@ -2,10 +2,14 @@ use std::io::{Read, Write};
 use std::net::TcpStream;
 
 use serde::{Serialize, Deserialize};
+use itertools::Itertools;
 
 use crate::buffer::{ToBuffer, FromBuffer};
+use crate::error::{NetCommsError, NetCommsErrorKind};
+use crate::command::Command;
 use crate::message::MessageKind;
 use crate::packet::{MetaData, PacketKind, Packet};
+use crate::config::{MAX_PACKET_SIZE, SERVER_ID};
 
 
 /// Struct holds all information about message to be sent or received.
@@ -30,6 +34,48 @@ impl Message {
         }
     }
 
+    /// Creates a new message from Command.
+    /// This method can be used only by client as it allows multiple recipients, server is always creating messages with one recipient.
+    // Result is probably unnecessary as this will be called by send variant itself? Change after command processing.
+    pub fn from_command(command: Command) -> Result<Self, NetCommsError> {
+
+        match command {
+            Command::Send(msg_kind, author_id, recipients, content, file_name) => {
+
+                let mut msg = Self::new();
+
+                let vectored_content = Self::split_to_max_packet_size(content);
+
+                // Get number of content packets.
+                let mut n_of_content_packets = 0;
+                for vec in vectored_content.into_iter() {
+                    n_of_content_packets += 1;
+                    let packet = Packet::new(PacketKind::new_content(vec));
+                    msg.push_content(packet);
+                }
+
+                let temp_metadata = MetaData::new(msg_kind.clone(), 0,
+                                                          author_id,
+                                                          SERVER_ID, recipients.clone(),
+                                                          file_name.clone());
+                                                      
+                let n_of_metadata_packets = Self::split_to_max_packet_size(temp_metadata.to_buff()).len();
+
+                // Adds number of MetaData packets to number of Content packets to one End packet.
+                let msg_length = n_of_metadata_packets + n_of_content_packets + 1; 
+
+                let metadata = MetaData::new(msg_kind, msg_length, author_id, SERVER_ID, recipients, file_name);
+                
+
+                msg.set_metadata(metadata);
+                msg.set_end_data(Packet::new(PacketKind::End));
+
+                Ok(msg)
+            },
+            _ => Err(NetCommsError::new(NetCommsErrorKind::WrongCommand))
+        }
+    }
+
     /// This takes an ownership of self
     /// and sends a Message through given stream.
     pub fn send(self, stream: &mut TcpStream) {
@@ -43,8 +89,7 @@ impl Message {
         
         // Write all content packets to stream.
         for packet in self.content {
-            stream.write(&packet.clone().to_buff()).unwrap();
-            println!("content to buff: {:?}", &packet.to_buff());  
+            stream.write(&packet.to_buff()).unwrap();
         }
         
         // Write a end_data packet to stream.
@@ -78,14 +123,12 @@ impl Message {
 
             // I would like change kind to private later.
             // Get a packet kind and modify msg based on that. 
-            match packet.get_kind() {
+            match packet.kind() {
                 PacketKind::Empty => {
                     println!("Empty");
                 },
                 PacketKind::MetaData(..) => {
-                    // let metadata = MetaData::from_buff(packet.get_kind_owned().to_buff());
-                    // msg.set_metadata(metadata)
-                    msg.set_metadata(packet.kind.get_metadata().unwrap()); // CAN I USE UNWRAP?
+                    msg.set_metadata(MetaData::from_buff(packet.kind.content().unwrap())); // CAN I USE UNWRAP?
                 },
                 PacketKind::Content(..) => {
                     msg.push_content(packet);
@@ -130,13 +173,29 @@ impl Message {
 
     /// This takes an ownership of self
     /// and returns the whole content of all Packets as a single Vec<u8>.
-    pub fn get_content(self) ->  Vec<u8> {
+    pub fn content(self) ->  Vec<u8> {
         let mut content: Vec<u8> = Vec::new();
         for data in self.content.into_iter() {
-            if let PacketKind::Content(_, data) = data.get_kind_owned() { // Beware beware the unwrap comes.
+            if let PacketKind::Content(_, data) = data.kind_owned() { // Beware beware the unwrap comes.
                 content.extend(data);
             }
         }
         content
+    }
+
+    /// Splits given buffer to vector of buffer of MAXIMUM_PACKET_SIZE.
+    pub fn split_to_max_packet_size(buffer: Vec<u8>) -> Vec<Vec<u8>> {
+
+        // This splits given buffer to multiple owned chunks with chunks method from itertools crate,
+        // then it will split every chunk to iterator as well which are then collected to vectors of bytes,
+        // that are collected to single vector. 
+        // This is not my work: https://stackoverflow.com/a/67009164. 
+        let vectored_content: Vec<Vec<u8>> = buffer.into_iter()
+                                                    .chunks(MAX_PACKET_SIZE - 10)
+                                                    .into_iter()
+                                                    .map(|chunk| chunk.collect())
+                                                    .collect();
+
+        vectored_content
     }
 }
