@@ -15,7 +15,6 @@ pub enum PacketKind {
     Empty,  
     // First data is length of vector, therefore number of bytes in it.
     MetaData(usize, Vec<u8>),   // Here second data hold MetaData struct encoded in RON format.
-    MetaDataEnd(usize, Vec<u8>),    // Identical to MetaData, last metadata packet in message has this variant.
     Content(usize, Vec<u8>),    // Actual content of second data depends on message kind which is described in MetaData.
     Request,
     End,    // PacketKind::End signalized end of Message. // MOST LIKELY WILL ADD SOME DATA INSIDE IN FUTURE.
@@ -36,10 +35,6 @@ impl ToBuffer for PacketKind {
                 buff.extend([1_u8, 0_u8]);
                 buff.extend(content);
             },
-            MetaDataEnd(_, content) => {
-                buff.extend([1_u8, 1_u8]);
-                buff.extend(content);
-            }
             Content(_, content) => {
                 buff.extend([2_u8, 0_u8]);
                 buff.extend(content);
@@ -68,13 +63,7 @@ impl FromBuffer for PacketKind {
         // Second number can describe some variance inside a PackedKind variant.
         let kind = match kind[0] {
             0 => PacketKind::Empty,
-            1 => {
-                match kind[1] {
-                    0 => PacketKind::MetaData(content_size, contents.to_vec()),
-                    1 => PacketKind::MetaDataEnd(content_size, contents.to_vec()),
-                    _ => PacketKind::Unknown,
-                }
-            },
+            1 => PacketKind::MetaData(content_size, contents.to_vec()),
             2 => PacketKind::Content(content_size, contents.to_vec()),
             3 => PacketKind::Request,
             4 => PacketKind::End,
@@ -98,15 +87,6 @@ impl PacketKind {
         MetaData(size, content)
     }
 
-    /// Creates a new PacketKind::MetaDataEnd with metadata supplied in argument.
-    /// Takes an ownership of content.
-    pub fn new_metadata_end(content: Vec<u8>) -> Self {
-
-        let size = content.len();
-
-        MetaDataEnd(size, content)
-    }
-
     /// Creates a new PacketKind::Content with content supplied in argument.
     /// Takes an ownership of content.
     pub fn new_content(content: Vec<u8>) -> Self {
@@ -120,7 +100,6 @@ impl PacketKind {
         let size = match self {
             Empty => 0,
             MetaData(size, _) => *size,
-            MetaDataEnd(size, _) => *size,
             Content(size, _) => *size,
             Request => 0 as usize,
             End => 0 as usize,
@@ -136,7 +115,6 @@ impl PacketKind {
         let kind =  match self {
             Empty => Empty,
             MetaData(..) => MetaData(0, Vec::new()),
-            MetaDataEnd(..) => MetaDataEnd(0, Vec::new()),
             Content(..) => Content(0, Vec::new()),
             Request => Request,
             End => End,
@@ -151,7 +129,7 @@ impl PacketKind {
     /// otherwise returns PacketKindError.
     pub fn content(self) -> Result<Vec<u8>, PacketKindError> {
 
-        if let MetaData(_, content) | MetaDataEnd(_, content) | Content(_, content) = self {
+        if let MetaData(_, content) | Content(_, content) = self {
             return Ok(content);
         } else {
             return Err(PacketKindError {});

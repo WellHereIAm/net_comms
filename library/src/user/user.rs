@@ -1,13 +1,13 @@
 #[derive(Debug)]
 pub struct User {
-    id: [u8; 4],
+    id: usize,
     username: String,
     password: String,
 }
 
 impl User {
     
-    pub fn new(id: [u8; 4], username: String, password: String) -> Self {
+    pub fn new(id: usize, username: String, password: String) -> Self {
         User {
             id,
             username,

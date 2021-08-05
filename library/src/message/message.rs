@@ -13,12 +13,12 @@ use crate::config::{MAX_PACKET_SIZE, SERVER_ID};
 
 
 /// Struct holds all information about message to be sent or received.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
-    pub kind: MessageKind,
-    pub metadata: MetaData,
-    pub content: Vec<Packet>,   // Vector of packets which together hold the whole content of Message.
-    pub end_data: Packet,
+    kind: MessageKind,
+    metadata: MetaData,
+    content: Vec<Packet>,   // Vector of packets which together hold the whole content of Message.
+    end_data: Packet,
 }
 
 impl Message {
@@ -80,22 +80,12 @@ impl Message {
     /// and sends a Message through given stream.
     pub fn send(self, stream: &mut TcpStream) {
 
-        // Crates multiple metadata packets if necessary and sends them through stream.
+        // Crates multiple metadata packets if necessary and writes them to stream.
         let metadata_buff = self.metadata.to_buff();
         let metadata_buff_split = Self::split_to_max_packet_size(metadata_buff);
-        let metadata_len = metadata_buff_split.len();
 
-        for (id, buff) in metadata_buff_split.into_iter().enumerate() {
-            let packet: Packet;
-            // Because enumerate starts at 0, it´s necessary to add 1 to it.
-            if id + 1 == metadata_len {
-                println!("metadata end");
-                packet = Packet::new(PacketKind::new_metadata_end(buff));
-            } else {
-                println!("metadata");
-                packet = Packet::new(PacketKind::new_metadata(buff));
-            }
-            println!("{:?}", &packet);
+        for buff in metadata_buff_split {
+            let packet = Packet::new(PacketKind::new_metadata(buff));
             stream.write(&packet.to_buff()).unwrap();
         }
                 
@@ -142,11 +132,6 @@ impl Message {
                 PacketKind::MetaData(..) => {
                     metadata_buff.extend(packet.kind_owned().content().unwrap());
                 },
-                PacketKind::MetaDataEnd(..) => {
-                    metadata_buff.extend(packet.kind_owned().content().unwrap());
-                    println!("{}", String::from_utf8(metadata_buff.clone()).unwrap());
-                    msg.set_metadata(MetaData::from_buff(metadata_buff.clone())); // I DO NOT LIKE USING CLONE, BUT DON´T KNOW HOW TO DO IT WITHOUT IT.
-                }
                 PacketKind::Content(..) => {
                     msg.push_content(packet);
                 },
@@ -161,7 +146,8 @@ impl Message {
                     println!("Unknown.")
                 },
             }  
-        }         
+        }
+        msg.set_metadata(MetaData::from_buff(metadata_buff));
 
         msg
     }
@@ -170,7 +156,7 @@ impl Message {
     /// Takes an ownership of metadata given in argument.
     pub fn set_metadata(&mut self, metadata: MetaData) {
 
-        self.kind = metadata.message_kind.clone();
+        self.kind = metadata.message_kind();
         self.metadata = metadata;
     }
 

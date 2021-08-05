@@ -1,0 +1,3 @@
+Start reworking all Errors in the library to one unified error::NetCommsError.
+Add the content() or text() to Message to show the received Message.
+And lot of other stuff.

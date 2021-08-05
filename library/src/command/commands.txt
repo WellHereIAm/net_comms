@@ -1,0 +1,4 @@
+
+SEND COMMAND: 
+send <recipient>/<(recipient_1, recipient_2, ..., recipient_n)> <content>
+

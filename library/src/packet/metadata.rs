@@ -14,13 +14,13 @@ use crate::message::MessageKind;
 // CAN AND MOST LIKELY WILL GROW.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetaData {
-    pub message_kind: MessageKind,
-    pub message_length: usize,  // Length of message in number of packets.
-    pub datetime: Vec<u8>,  // Encoded chrono::Datetime<Utc> to Vec<u8> to ease serde serializing and deserializing.
-    pub author_id: usize,
-    pub recipient_id: usize, // In future maybe get rid of this field as now it´s just adding nothing.
-    pub recipients: Vec<String>,
-    pub file_name: Option<String>,  // If Some, String holds a file name and extension.
+    message_kind: MessageKind,
+    message_length: usize,  // Length of message in number of packets.
+    datetime: Vec<u8>,  // Encoded chrono::Datetime<Utc> to Vec<u8> to ease serde serializing and deserializing.
+    author_id: usize,
+    recipient_id: usize, // In future maybe get rid of this field as now it´s just adding nothing.
+    recipients: Vec<String>,
+    file_name: Option<String>,  // If Some, String holds a file name and extension.
 }
 
 impl ToBuffer for MetaData {
@@ -105,6 +105,10 @@ impl MetaData {
     /// Returns MetaData from RON.
     pub fn from_ron(ron: &String) -> Self {
         de::from_str(ron).unwrap() // CAN I USE UNWRAP?
+    }
+
+    pub fn message_kind(&self) -> MessageKind {
+        self.message_kind.clone()
     }
 
     /// Internal method used in MetaData::new() and MetaData::new_empty() to get current datetime.

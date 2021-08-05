@@ -1,7 +1,7 @@
 use crate::message::MessageKind;
 use crate::user::UserUnchecked;
 
-
+#[derive(Debug)]
 pub enum Command {
     Register(UserUnchecked),
     Login(UserUnchecked),
