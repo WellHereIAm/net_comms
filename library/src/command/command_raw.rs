@@ -204,11 +204,7 @@ impl CommandRaw {
                 path.metadata().unwrap().len();
 
 
-                // I would like to be able to send files of any size, 
-                // now the size is limited by RAM, I believe, but to overcome
-                // this limitation I would need to rework Message to be able to
-                // send MetaData and then each Content Packet every time immediately
-                // as would be this Packet read from file.
+                
                 let time = std::time::SystemTime::now();
                 let mut file = File::open(path).unwrap();
                 let mut buff = Vec::new();
