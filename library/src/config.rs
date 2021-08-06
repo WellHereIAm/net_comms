@@ -6,3 +6,6 @@ pub const PORT: &str = "8000";
 pub const ADDR: &str = "127.0.0.1";
 pub const SERVER_ID: usize  = 0;
 pub const DEFAULT_ID: usize  = 1;
+
+// This will be later in client config file
+pub const FILE_STORAGE: &'static str = "D:\\stepa\\Documents\\Rust\\net_comms\\sending_files_test";

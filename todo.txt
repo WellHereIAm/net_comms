@@ -1,3 +1,3 @@
 Start reworking all Errors in the library to one unified error::NetCommsError.
-Add the content() or text() to Message to show the received Message.
-And lot of other stuff.
+Get send command send exact content as now it truncates all spaces so if there are multiple spaces in row it will be reduced to only one.
+    This is biggest problem for file names.

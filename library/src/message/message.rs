@@ -1,5 +1,7 @@
-use std::io::{Read, Write};
+use std::fs::{self, File, OpenOptions, read};
+use std::io::{BufReader, Read, Seek, SeekFrom, Write};
 use std::net::TcpStream;
+use std::path::Path;
 
 use serde::{Serialize, Deserialize};
 use itertools::Itertools;
@@ -98,13 +100,115 @@ impl Message {
         stream.write(&self.end_data.clone().to_buff()).unwrap();
     }
 
+    /// This takes an ownership of self and unlike text message this sends
+    /// metadata first, then will gradually read the file to max packet length,
+    /// sends the Packet and continue to the end of the file so there is no
+    /// risk of overflowing the memory with too big files.
+    pub fn send_file(self, stream: &mut TcpStream) {
+
+        let file = fs::File::open(self.metadata.file_name().unwrap()).unwrap();
+        let file_length = file.metadata().unwrap().len();
+
+        let mut n_of_packets = 0;
+        let n_of_content_packets: usize;
+
+        if file_length as usize % MAX_PACKET_SIZE != 0 {
+            n_of_content_packets = file_length as usize / (MAX_PACKET_SIZE - 10) + 1;
+        } else {
+            n_of_content_packets = file_length as usize / (MAX_PACKET_SIZE - 10);
+        }
+
+        // This part can be optimized, but this should work.
+        let metadata_buff = self.metadata.to_buff();
+        let n_of_metadata_packets = Self::split_to_max_packet_size(metadata_buff.clone()).len();
+
+        n_of_packets += n_of_metadata_packets;
+        n_of_packets += n_of_content_packets;
+        n_of_packets += 1;
+
+        let mut metadata = MetaData::from_buff(metadata_buff);
+        metadata.set_message_length(n_of_packets);
+
+        // Yes... 
+        let file_name = Some(Path::new(&metadata
+                                                .file_name()
+                                                .unwrap())
+                                                .file_name()
+                                                .map(|name| name.to_string_lossy()
+                                                .into_owned())
+                                                .unwrap());
+
+        metadata.set_file_name(file_name);
+
+        // Crates multiple metadata packets if necessary and writes them to stream.
+        let metadata_buff = metadata.to_buff();
+        let metadata_buff_split = Self::split_to_max_packet_size(metadata_buff);
+
+        for buff in metadata_buff_split {
+            let packet = Packet::new(PacketKind::new_metadata(buff));
+            stream.write(&packet.to_buff()).unwrap();
+        }
+
+        let mut reader = BufReader::new(file);
+
+        for part in 1..=n_of_content_packets {
+            let packet: Packet;
+            {
+                let mut buff: Vec<u8>;   
+                if part == n_of_content_packets {
+                    buff = Vec::new();
+                    reader.read_to_end(&mut buff).unwrap();
+                } else {
+                    buff = vec![0_u8; MAX_PACKET_SIZE - 10];
+                    reader.read(&mut buff).unwrap();
+                }    
+
+                packet = Packet::new(PacketKind::new_content(buff));
+            }
+            stream.write(&packet.to_buff()).unwrap();
+        }
+
+        stream.write(&self.end_data.clone().to_buff()).unwrap();  
+    }
+
     /// Receives a Message from given stream.
     // USE RESULT AS RETURN TYPE.
     pub fn receive(stream: &mut TcpStream) -> Self {
 
+    
+        // Now is this function really ugly. Rewrite it. Separate to multiple functions.
+        // I should revwrite this as two separate loops, one for metadata other for content
+
         // Create new empty Message.
         let mut msg = Message::new();
         let mut metadata_buff = Vec::new(); 
+
+        loop {
+            // Read size of incoming packet.
+            let mut size_buff = vec![0_u8; 8];
+            stream.read_exact(&mut size_buff).unwrap();
+            let size = usize::from_buff(size_buff.clone());
+
+            // Read rest of packet.
+            let mut buff = vec![0_u8; size - 8];
+            stream.read_exact(&mut buff).unwrap();
+
+            // Connect whole buffer.
+            size_buff.extend(buff);
+            let buff = size_buff;
+            
+            // Create a packet from buffer.
+            let packet = Packet::from_buff(buff); 
+
+            match packet.kind() {
+                PacketKind::MetaData(..) => {
+                    metadata_buff.extend(packet.kind_owned().content().unwrap());
+                }
+                _ => break,                
+            }
+        }
+
+        msg.set_metadata(MetaData::from_buff(metadata_buff));
         
         // Loop to read all packets.
         loop {
@@ -122,7 +226,7 @@ impl Message {
             let buff = size_buff;
             
             // Create a packet from buffer.
-            let packet = Packet::from_buff(buff);
+            let packet = Packet::from_buff(buff);            
 
             // Get a packet kind and modify msg based on that. 
             match packet.kind() {
@@ -130,11 +234,26 @@ impl Message {
                     println!("Empty");
                 },
                 PacketKind::MetaData(..) => {
-                    metadata_buff.extend(packet.kind_owned().content().unwrap());
+                    println!("MetaData");
                 },
                 PacketKind::Content(..) => {
-                    msg.push_content(packet);
+                    // println!("MessageKind: {:?}", msg.metadata().message_kind());
+                    if let MessageKind::File = msg.metadata().message_kind() {
+                        // println!("Path: {}", msg.metadata().file_name().unwrap());
+                        // Totally normal thing to have.
+                        let mut file = OpenOptions::new()
+                                                        .create(true)
+                                                        .append(true)
+                                                        .open(msg.metadata().file_name().unwrap())
+                                                        .unwrap();
+                        // println!("file: {:?}", &file);
+                        file.write(&packet.kind_owned().content().unwrap()).unwrap();
+                    } else {
+                        println!("It´s else.");
+                        msg.push_content(packet);
+                    }
                 },
+                
                 PacketKind::Request => {
                     println!("Request");
                 },
@@ -145,9 +264,8 @@ impl Message {
                 PacketKind::Unknown => {
                     println!("Unknown.")
                 },
-            }  
+            } 
         }
-        msg.set_metadata(MetaData::from_buff(metadata_buff));
 
         msg
     }

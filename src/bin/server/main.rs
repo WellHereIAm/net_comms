@@ -1,8 +1,10 @@
 use std::io::Write;
 use std::net::{TcpListener};
-use std::fs;
+use std::fs::{self, OpenOptions};
 
 use library::prelude::*;
+
+mod config;
 
 /// Server now listens for only one message, then the process will end.
 fn main() {
@@ -12,14 +14,12 @@ fn main() {
     println!("Listening for connections.");
 
     for stream in listener.incoming() {
+        println!("Got connection.");
         match stream {
             Ok(mut stream) => {
                 let msg = Message::receive(&mut stream);
                 match msg.kind() {
-                    MessageKind::File => {
-                        let mut file = fs::File::create(msg.metadata().file_name().unwrap()).unwrap();
-                        file.write(&msg.content().clone()).unwrap();
-                    },
+                    MessageKind::File => {},
                     MessageKind::Text => {
                         println!("{:?} \n Content: {}", &msg, String::from_buff(msg.clone().content()));
                     },
@@ -28,5 +28,6 @@ fn main() {
             },
             Err(_) => todo!(),
         }
+        println!("Handled connection.");
     }
 }

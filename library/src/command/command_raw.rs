@@ -163,7 +163,6 @@ impl CommandRaw {
                 todo!();
             },
         }
-        println!("cmd.vec : {:?}", cmd.vec.clone());
 
         let does_exist: bool;
         match cmd.vec.get(recipients_length + 1) {
@@ -187,36 +186,15 @@ impl CommandRaw {
         let kind: MessageKind;
         let mut file_name: Option<String> = None;
         let mut content = Vec::new();
-        if cmd_content.starts_with("<") {
+
+        // Check if the content of command is Path
+        if cmd_content.starts_with("|") {
             kind = MessageKind::File;
-            cmd_content = cmd_content.replace("<", "");
-            cmd_content =  cmd_content.replace(">", "");
+            cmd_content = cmd_content.replace("|", "");
             let path = Path::new(&cmd_content);
             if path.is_file() {
-
                 // Rework this for proper Error handling.
-                file_name = Some(path
-                                .file_name()
-                                .map(|name| name.to_string_lossy().into_owned())
-                                .unwrap_or("".into()));
-                println!("{:?}", &file_name);
-
-                path.metadata().unwrap().len();
-
-
-                
-                let time = std::time::SystemTime::now();
-                let mut file = File::open(path).unwrap();
-                let mut buff = Vec::new();
-                file.read_to_end(&mut buff).unwrap();
-                content = buff;
-                // content = fs::read(path).unwrap();
-                let duration = std::time::SystemTime::now().duration_since(time).unwrap().as_millis();
-
-                println!("Duration of file reading: {}", duration / 1000);
-
-
-                
+                file_name = Some(path.to_str().unwrap().to_string());    
             }
         } else {
             kind = MessageKind::Text;
@@ -225,12 +203,13 @@ impl CommandRaw {
         }
 
         let author_id = user.id();
+
         Ok(Command::Send(
             kind,
             author_id,
             recipients,
             content,
-            file_name,
+            file_name, // Should rename this
         ))
     }
 }

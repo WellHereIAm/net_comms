@@ -102,7 +102,7 @@ impl MetaData {
 
     }
 
-    /// Returns MetaData from RON.
+    /// Creates MetaData from RON.
     pub fn from_ron(ron: &String) -> Self {
         de::from_str(ron).unwrap() // CAN I USE UNWRAP?
     }
@@ -113,6 +113,18 @@ impl MetaData {
 
     pub fn file_name(&self) -> Option<String> {
         self.file_name.clone()
+    }
+
+    pub fn set_file_name(&mut self, name: Option<String>) {
+        self.file_name = name;
+    }
+
+    pub fn set_message_length(&mut self, length: usize) {
+        self.message_length = length;
+    }
+
+    pub fn message_length(&self) -> usize {
+        self.message_length 
     }
 
     /// Internal method used in MetaData::new() and MetaData::new_empty() to get current datetime.

@@ -15,26 +15,30 @@ fn main() {
     // D:\Software\Steam\steamapps\common\Apex Legends\paks\Win64\pc_all.starpak 5
 
     
-//     // let config = ron::ser::PrettyConfig::new()
-//     //                                                 .with_depth_limit(4)
-//     //                                                 .with_decimal_floats(true); 
-//     // println!("{}", ron::ser::to_string_pretty(&msg, config).unwrap());
+    // let config = ron::ser::PrettyConfig::new()
+    //                                                 .with_depth_limit(4)
+    //                                                 .with_decimal_floats(true); 
+    // println!("{}", ron::ser::to_string_pretty(&msg, config).unwrap());
 
    let socket = format!("{}:{}", ADDR, PORT);
 
     match TcpStream::connect(socket) {
         Ok(mut stream) => {
-            let time = std::time::SystemTime::now();
-            msg.send(&mut stream);    
-            let duration = std::time::SystemTime::now().duration_since(time).unwrap().as_millis();
-            println!("Duration of sending: {}", duration / 1000);
+            if let Some(file_name) = msg.metadata().file_name() {
+                println!("Sending file: {}", file_name);
+                msg.send_file(&mut stream);
+            } else {
+                msg.send(&mut stream);
+            }
+            // let time = std::time::SystemTime::now();
+            // // msg.send(&mut stream);    
+            // let duration = std::time::SystemTime::now().duration_since(time).unwrap().as_millis();
+            // println!("Duration of sending: {}", duration / 1000);
         },            
         Err(e) => {
             println!("{}", e);
         },
     };
-
-    input("");
 
     //let user = get_user();
     //println!("{:?}", user);  
