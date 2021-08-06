@@ -1,4 +1,5 @@
-use std::ops::Index;
+use std::fs::{self, File};
+use std::io::Read;
 use std::path::Path;
 
 use utils::input;
@@ -117,9 +118,7 @@ impl CommandRaw {
         Ok(Command::No)
     }
 
-    fn check_send(mut cmd: CommandRaw, user: &User) -> Result<Command, CommandRawError> {
-
-        println!("cmd that got into check_send(): {:?}", &cmd);
+    fn check_send(cmd: CommandRaw, user: &User) -> Result<Command, CommandRawError> {
 
         let mut recipients: Vec<String> = Vec::new();
         let mut recipients_length = 0;
@@ -133,7 +132,6 @@ impl CommandRaw {
                     let mut is_last = false;
 
                     for recipient in cmd.vec[1..cmd_len].to_vec() {
-                        println!("Recipient before processing: <{}>, debug: {:?} ", &recipient, &recipient);
                         
                         if recipient.ends_with(")") {
                             is_last = true;
@@ -170,38 +168,67 @@ impl CommandRaw {
         let does_exist: bool;
         match cmd.vec.get(recipients_length + 1) {
             Some(_) => {
-                println!("Does exist.");
                 does_exist = true;
             },
             None => {
-                println!("Does not exist.");
                 does_exist = false
             }, // Invoke error
         }
 
-        println!("does_exist: {}", does_exist);
-        let mut content = Vec::new();
-        
+        let mut cmd_content = String::new();
         
         if does_exist {
             for mut part in cmd.vec[recipients_length + 1..cmd_len].to_vec() {
                 part.push(' ');
-                content.extend(part.to_buff());            
+                cmd_content.push_str(&part);          
             }
-        } else {
-            content = Vec::new();
         }
 
-        // if content.starts_with("FILE: ") {
-        //     let vec = content.split(":").next();
-        // }
+        let kind: MessageKind;
+        let mut file_name: Option<String> = None;
+        let mut content = Vec::new();
+        if cmd_content.starts_with("<") {
+            kind = MessageKind::File;
+            cmd_content = cmd_content.replace("<", "");
+            cmd_content =  cmd_content.replace(">", "");
+            let path = Path::new(&cmd_content);
+            if path.is_file() {
 
-        println!("recipients: {:?}", recipients);
-        println!("content: {:?}", &content);
+                // Rework this for proper Error handling.
+                file_name = Some(path
+                                .file_name()
+                                .map(|name| name.to_string_lossy().into_owned())
+                                .unwrap_or("".into()));
+                println!("{:?}", &file_name);
 
-        let kind = MessageKind::Text; // Later deduct kind based of the content
-        let author_id = 1; // LATER GET DYNAMIC IDS
-        let file_name = None; // GET THIS DYNAMICALLY.
+                path.metadata().unwrap().len();
+
+
+                // I would like to be able to send files of any size, 
+                // now the size is limited by RAM, I believe, but to overcome
+                // this limitation I would need to rework Message to be able to
+                // send MetaData and then each Content Packet every time immediately
+                // as would be this Packet read from file.
+                let time = std::time::SystemTime::now();
+                let mut file = File::open(path).unwrap();
+                let mut buff = Vec::new();
+                file.read_to_end(&mut buff).unwrap();
+                content = buff;
+                // content = fs::read(path).unwrap();
+                let duration = std::time::SystemTime::now().duration_since(time).unwrap().as_millis();
+
+                println!("Duration of file reading: {}", duration / 1000);
+
+
+                
+            }
+        } else {
+            kind = MessageKind::Text;
+            file_name = None;
+            content = cmd_content.to_buff();
+        }
+
+        let author_id = user.id();
         Ok(Command::Send(
             kind,
             author_id,

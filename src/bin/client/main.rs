@@ -8,8 +8,11 @@ fn main() {
     let user = User::new(25, "Štěpán".to_string(), "heslo".to_string());
     let cmd_raw = CommandRaw::get(Some("send <(recipient_1, recipient_2, ..., recipient_n)> <content> \n"));
     let cmd = cmd_raw.process(&user).unwrap();
-    println!("cmd in client: {:?}", &cmd);
+    // println!("cmd in client: {:?}", &cmd);
     let msg = Message::from_command(cmd).unwrap();
+
+    // D:\Software\Steam\steamapps\common\Apex Legends\paks\Win64\pc_all.opt.starpak 40
+    // D:\Software\Steam\steamapps\common\Apex Legends\paks\Win64\pc_all.starpak 5
 
     
 //     // let config = ron::ser::PrettyConfig::new()
@@ -21,49 +24,20 @@ fn main() {
 
     match TcpStream::connect(socket) {
         Ok(mut stream) => {
+            let time = std::time::SystemTime::now();
             msg.send(&mut stream);    
+            let duration = std::time::SystemTime::now().duration_since(time).unwrap().as_millis();
+            println!("Duration of sending: {}", duration / 1000);
         },            
         Err(e) => {
             println!("{}", e);
         },
     };
 
-   
-
-   //input("");
+    input("");
 
     //let user = get_user();
-    //println!("{:?}", user);
-
-
-    // Create empty value for every packet
-
-    //x.push(EmptyPacket::new(10));
-    //x.push(MetaDataPacket::new(10));
-
-    // Loop till leave command is used. Later use more threads, one to process commands, other to show messages etc.
-    //loop {
-    //    let cmd = CommandRaw::get::<String>(None).process_cmd();
-    //    match cmd {
-    //        Ok(cmd) => {
-    //            match cmd {
-    //                Command::Register(_) => todo!(),
-    //                Command::Login(_) => todo!(),
-    //                Command::Yes => todo!(),
-    //                Command::No => todo!(),
-    //                Command::Send(..) => todo!(),
-    //                Command::Unknown => todo!(),
-    //            }
-    //        },
-    //        Err(e) => {
-    //            println!("Error in main while processing command. {}", e)
-    //        },
-    //    }
-    //    
-    //}
-
-    
-
+    //println!("{:?}", user);  
 }
 
 // Later actually establish connection with the server.

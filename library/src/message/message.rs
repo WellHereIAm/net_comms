@@ -199,4 +199,13 @@ impl Message {
 
         vectored_content
     }
+
+    /// Returns a MessageKind
+    pub fn kind(&self) -> MessageKind {
+        self.kind.clone()
+    }
+
+    pub fn metadata(&self) -> MetaData {
+        self.metadata.clone()
+    }
 }

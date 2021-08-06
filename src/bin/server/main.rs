@@ -1,4 +1,6 @@
+use std::io::Write;
 use std::net::{TcpListener};
+use std::fs;
 
 use library::prelude::*;
 
@@ -13,8 +15,16 @@ fn main() {
         match stream {
             Ok(mut stream) => {
                 let msg = Message::receive(&mut stream);
-                println!("{:?} \n Content: {}", &msg, String::from_buff(msg.clone().content()));
-                break;
+                match msg.kind() {
+                    MessageKind::File => {
+                        let mut file = fs::File::create(msg.metadata().file_name().unwrap()).unwrap();
+                        file.write(&msg.content().clone()).unwrap();
+                    },
+                    MessageKind::Text => {
+                        println!("{:?} \n Content: {}", &msg, String::from_buff(msg.clone().content()));
+                    },
+                    _ => {},
+                }
             },
             Err(_) => todo!(),
         }

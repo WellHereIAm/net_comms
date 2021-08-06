@@ -14,4 +14,8 @@ impl User {
             password,
         }
     }
+
+    pub fn id(&self) -> usize {
+        self.id
+    }
 }

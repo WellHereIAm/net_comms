@@ -111,6 +111,10 @@ impl MetaData {
         self.message_kind.clone()
     }
 
+    pub fn file_name(&self) -> Option<String> {
+        self.file_name.clone()
+    }
+
     /// Internal method used in MetaData::new() and MetaData::new_empty() to get current datetime.
     fn datetime() -> DateTime<Utc> {
     
