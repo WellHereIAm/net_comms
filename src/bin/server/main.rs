@@ -25,6 +25,7 @@ fn main() {
                     },
                     _ => {},
                 }
+                println!("msg: {:?}", &msg);
             },
             Err(_) => todo!(),
         }

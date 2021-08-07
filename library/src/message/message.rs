@@ -1,5 +1,6 @@
 use std::fs::{self, File, OpenOptions, read};
 use std::io::{BufReader, Read, Seek, SeekFrom, Write};
+use std::iter::FromIterator;
 use std::net::TcpStream;
 use std::path::Path;
 
@@ -143,14 +144,24 @@ impl Message {
         // Crates multiple metadata packets if necessary and writes them to stream.
         let metadata_buff = metadata.to_buff();
         let metadata_buff_split = Self::split_to_max_packet_size(metadata_buff);
-
+        
+        let mut id = 0;
+        let n_of_mtd = metadata_buff_split.len();
+        // println!("n_of_metadata: {} mtd buff spolit {}", n_of_metadata_packets, metadata_buff_split.len());
         for buff in metadata_buff_split {
-            let packet = Packet::new(PacketKind::new_metadata(buff));
+            id += 1;
+            // println!("id: {}", id);
+            let packet: Packet;
+            if id == n_of_mtd {
+                packet = Packet::new(PacketKind::new_metadata_end(buff));
+            } else {
+                packet = Packet::new(PacketKind::new_metadata(buff));
+            }
             stream.write(&packet.to_buff()).unwrap();
         }
 
         let mut reader = BufReader::new(file);
-
+        // let mut file_test_vec = Vec::new();
         for part in 1..=n_of_content_packets {
             let packet: Packet;
             {
@@ -160,13 +171,18 @@ impl Message {
                     reader.read_to_end(&mut buff).unwrap();
                 } else {
                     buff = vec![0_u8; MAX_PACKET_SIZE - 10];
-                    reader.read(&mut buff).unwrap();
+                    reader.read_exact(&mut buff).unwrap(); // This read_exact instead of read is really important.
                 }    
 
+                // file_test_vec.extend(buff.clone());
                 packet = Packet::new(PacketKind::new_content(buff));
             }
             stream.write(&packet.to_buff()).unwrap();
         }
+
+        // let mut file = OpenOptions::new().create(true).write(true).open("read").unwrap();
+        // file.write(&file_test_vec);
+
 
         stream.write(&self.end_data.clone().to_buff()).unwrap();  
     }
@@ -177,7 +193,6 @@ impl Message {
 
     
         // Now is this function really ugly. Rewrite it. Separate to multiple functions.
-        // I should revwrite this as two separate loops, one for metadata other for content
 
         // Create new empty Message.
         let mut msg = Message::new();
@@ -198,19 +213,28 @@ impl Message {
             let buff = size_buff;
             
             // Create a packet from buffer.
-            let packet = Packet::from_buff(buff); 
+            let packet = Packet::from_buff(buff);
+            
+            let metadata_text = String::from_buff(packet.clone().kind_owned().content().unwrap());
+            // println!("Packet kind: {:?} metadata: {}", &packet.kind(), metadata_text);
 
             match packet.kind() {
                 PacketKind::MetaData(..) => {
                     metadata_buff.extend(packet.kind_owned().content().unwrap());
                 }
-                _ => break,                
+                PacketKind::MetaDataEnd(..) => {
+                    metadata_buff.extend(packet.kind_owned().content().unwrap());
+                    break;
+                },
+                _ => {
+                    println!("Unexpected PacketKind");
+                }               
             }
         }
 
         msg.set_metadata(MetaData::from_buff(metadata_buff));
-        
-        // Loop to read all packets.
+  
+        // Loop to read all content packets.
         loop {
             // Read size of incoming packet.
             let mut size_buff = vec![0_u8; 8];
@@ -226,7 +250,8 @@ impl Message {
             let buff = size_buff;
             
             // Create a packet from buffer.
-            let packet = Packet::from_buff(buff);            
+            let packet = Packet::from_buff(buff);
+            // println!("packet kind: {:?}", packet.clone().kind_owned());            
 
             // Get a packet kind and modify msg based on that. 
             match packet.kind() {
@@ -236,21 +261,28 @@ impl Message {
                 PacketKind::MetaData(..) => {
                     println!("MetaData");
                 },
+                PacketKind::MetaDataEnd(..) => {
+                    println!("MetaDataEnd");
+                }
                 PacketKind::Content(..) => {
-                    // println!("MessageKind: {:?}", msg.metadata().message_kind());
-                    if let MessageKind::File = msg.metadata().message_kind() {
-                        // println!("Path: {}", msg.metadata().file_name().unwrap());
-                        // Totally normal thing to have.
-                        let mut file = OpenOptions::new()
-                                                        .create(true)
-                                                        .append(true)
-                                                        .open(msg.metadata().file_name().unwrap())
-                                                        .unwrap();
-                        // println!("file: {:?}", &file);
-                        file.write(&packet.kind_owned().content().unwrap()).unwrap();
-                    } else {
-                        println!("It´s else.");
-                        msg.push_content(packet);
+                    // println!("file name: {:?}", msg.metadata().file_name());
+                    match msg.metadata().message_kind() {
+                        MessageKind::File => {
+                            let mut file = OpenOptions::new()
+                                                            .create(true)
+                                                            .append(true)
+                                                            .write(true)
+                                                            .open(msg.metadata().file_name().unwrap()) //Unwrap can be used.
+                                                            .unwrap();
+
+                            // println!("{}", String::from_buff(packet.clone().kind_owned().content().unwrap())); 
+                            file.write(&packet.kind_owned().content().unwrap()).unwrap();
+                            // println!("File len in loop: {}", file.metadata().unwrap().len());                            
+                        }
+                        _ => {
+                            println!("It´s else.");
+                            msg.push_content(packet);
+                        }
                     }
                 },
                 
@@ -266,6 +298,8 @@ impl Message {
                 },
             } 
         }
+        // let f = fs::File::open(msg.metadata().file_name().unwrap()).unwrap();
+        // println!("File len: {}", f.metadata().unwrap().len());
 
         msg
     }

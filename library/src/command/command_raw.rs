@@ -22,7 +22,7 @@ impl CommandRaw {
     pub fn get<T>(msg: Option<T>) -> Self
     where 
         T: std::fmt::Display {
-    
+
     // Probably better to split at ()
     let cmd = match msg {
         Some(msg) => {
