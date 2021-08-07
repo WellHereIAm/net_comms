@@ -2,15 +2,32 @@ use crate::error::NetCommsErrorKind;
 
 
 /// Error struct for this library.
-#[derive(Debug)]
+// #[derive(Debug)]
 pub struct NetCommsError {
     pub kind: NetCommsErrorKind,
     pub message: Option<String>,
 }
 
+impl std::fmt::Debug for NetCommsError {
+
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Self::output(&self, f)        
+    }    
+}
+
 impl std::fmt::Display for NetCommsError {
 
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Self::output(&self, f)        
+    }    
+}
+
+impl std::error::Error for NetCommsError {}
+
+impl NetCommsError {
+
+    fn output(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+
         match self.kind {
             NetCommsErrorKind::WrongCommand => {
                 match &self.message {
@@ -49,11 +66,8 @@ impl std::fmt::Display for NetCommsError {
                 }
             },
         }
-        
     }    
 }
-
-impl std::error::Error for NetCommsError {}
 
 /// Struct to satisfy generics for Errors from this library.
 #[derive(Debug)]

@@ -1,3 +1,5 @@
-Start reworking all Errors in the library to one unified error::NetCommsError.  This do before any new feature.
+Start working on prototypes of client and server
+Maybe add backtrace crate into NetCommsError
+Rework marked methods in Message.
 Get send command send exact content as now it truncates all spaces so if there are multiple spaces in row it will be reduced to only one.
     This is biggest problem for file names.

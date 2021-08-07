@@ -31,7 +31,7 @@ impl FromBuffer for Packet {
     fn from_buff(buff: Vec<u8>) -> Result<Packet, NetCommsError>{
 
         // Check if buffer has valid length(at least 10).
-        match buff.get(PACKET_DESCRIPTION_SIZE - 1) { // - 1 because index starts at 0.
+        match buff.get(PACKET_DESCRIPTION_SIZE - 1) { // - 1 because index starts at
             Some(_) => &buff[0..8],
             None => return Err(NetCommsError {
                 kind: NetCommsErrorKind::InvalidBufferLength,
