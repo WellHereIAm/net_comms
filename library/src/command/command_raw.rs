@@ -1,11 +1,10 @@
-use std::fs::{self, File};
-use std::io::Read;
 use std::path::Path;
 
 use utils::input;
 
-use crate::buffer::{FromBuffer, ToBuffer};
-use crate::command::{Command, CommandError};
+use crate::buffer::ToBuffer;
+use crate::command::Command;
+use crate::prelude::NetCommsError;
 use crate::user::{User, UserUnchecked};
 use crate::message::MessageKind;
 
@@ -51,7 +50,7 @@ impl CommandRaw {
     // }
 
     // This function consumes the whole CommandRaw struct.    
-    pub fn process(self, user: &User) -> Result<Command, CommandError> {
+    pub fn process(self, user: &User) -> Result<Command, NetCommsError> {
         // ERROR HANDLING!
         match self.vec[0].as_str() {
             "register" => {
@@ -92,7 +91,7 @@ impl CommandRaw {
         }
     }
 
-    fn check_register(cmd: CommandRaw) -> Result<UserUnchecked, CommandRawError> {
+    fn check_register(cmd: CommandRaw) -> Result<UserUnchecked, NetCommsError> {
         // Later will perform logic to check if inputted command is a valid register command.
         Ok(UserUnchecked {
             username: cmd.vec[1].clone(),
@@ -100,7 +99,7 @@ impl CommandRaw {
         })
     }
 
-    fn check_login(cmd: CommandRaw) -> Result<UserUnchecked, CommandRawError> {
+    fn check_login(cmd: CommandRaw) -> Result<UserUnchecked, NetCommsError> {
         // Later will perform logic to check if inputted command is a valid login command.
         Ok(UserUnchecked {
             username: cmd.vec[1].clone(),
@@ -108,17 +107,17 @@ impl CommandRaw {
         })
     }
 
-    fn check_yes(cmd: CommandRaw) -> Result<Command, CommandRawError> {
+    fn check_yes(_cmd: CommandRaw) -> Result<Command, NetCommsError> {
         // Later will perform logic to check if inputted command is a valid yes command.
         Ok(Command::Yes)
     }
 
-    fn check_no(cmd: CommandRaw) -> Result<Command, CommandRawError> {
+    fn check_no(_cmd: CommandRaw) -> Result<Command, NetCommsError> {
         // Later will perform logic to check if inputted command is a valid no command.
         Ok(Command::No)
     }
 
-    fn check_send(cmd: CommandRaw, user: &User) -> Result<Command, CommandRawError> {
+    fn check_send(cmd: CommandRaw, user: &User) -> Result<Command, NetCommsError> {
 
         let mut recipients: Vec<String> = Vec::new();
         let mut recipients_length = 0;
@@ -199,7 +198,7 @@ impl CommandRaw {
         } else {
             kind = MessageKind::Text;
             file_name = None;
-            content = cmd_content.to_buff();
+            content = cmd_content.to_buff()?;
         }
 
         let author_id = user.id();

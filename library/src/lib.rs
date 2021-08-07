@@ -20,7 +20,7 @@ pub mod request;
 /// Module used to handle user.
 // This module will be probably completely refactored. Does not have documentation.
 pub mod user;
-/// Shared configurations for both server and client.
+/// Shared constant and static variables for both server and client.
 pub mod config;
 
 /// Module to simplify development, so I can use use library::prelude::*, most likely will be deleted later.
@@ -38,55 +38,78 @@ pub mod prelude {
 use chrono::{DateTime, NaiveDateTime, Utc};
 
 use buffer::{ToBuffer, FromBuffer};
+use crate::error::{NetCommsError, NetCommsErrorKind};
 
-// Wrappers of ToBuffer and FromBuffer around some types that are used inside this library.
+/// Wrappers of ToBuffer and FromBuffer around some types that are used inside this library.
 impl ToBuffer for usize {
 
-    fn to_buff(self) -> Vec<u8> {
+    fn to_buff(self) -> Result<Vec<u8>, NetCommsError> {
         
-        self.to_be_bytes().to_vec()
+        Ok(self.to_be_bytes().to_vec())
     }
 }
 
 impl FromBuffer for usize {
 
-    fn from_buff(buff: Vec<u8>) -> Self {
+    fn from_buff(buff: Vec<u8>) -> Result<usize, NetCommsError> {
+
+        // Check if buffer has valid length(at least 8).
+        if None == buff.get(7) {
+            return Err(NetCommsError {
+                kind: NetCommsErrorKind::InvalidBufferLength,
+                message: Some("Implementation from_buff for usize requires buffer of length of at least 8 bytes.".to_string()),
+            })
+        }
 
         let mut arr = [0_u8; 8];
         for (index, value) in buff.into_iter().enumerate() {
             arr[index] = value;
         }
-        usize::from_be_bytes(arr)
+        Ok(usize::from_be_bytes(arr))
     }
 }
 
 impl ToBuffer for String {
 
-    fn to_buff(self) -> Vec<u8> {
-        self.as_bytes().to_vec()
+    fn to_buff(self) -> Result<Vec<u8>, NetCommsError> {
+        Ok(self.as_bytes().to_vec())
     }
 }
 
 impl FromBuffer for String {
     
-    fn from_buff(buff: Vec<u8>) -> Self {
-        String::from_utf8_lossy(&buff).to_string()
+    fn from_buff(buff: Vec<u8>) -> Result<String, NetCommsError> {
+        match String::from_utf8(buff) {
+            Ok(string) => Ok(string),
+            Err(e) => Err(NetCommsError {
+                kind: NetCommsErrorKind::OtherSource(Box::new(e)),
+                message: None,
+            }),
+        }
     }
 }
 
 impl ToBuffer for DateTime<Utc> {
 
-    fn to_buff(self) -> Vec<u8> {
+    fn to_buff(self) -> Result<Vec<u8>, NetCommsError> {
         (self.timestamp() as usize).to_buff()
     }
 }
 
 impl FromBuffer for DateTime<Utc> {
 
-    fn from_buff(buff: Vec<u8>) -> Self {
-        let naive_datetime = NaiveDateTime::from_timestamp(usize::from_buff(buff) as i64, 0);
+    fn from_buff(buff: Vec<u8>) -> Result<DateTime<Utc>, NetCommsError> {
 
-        DateTime::from_utc(naive_datetime, Utc)  
+        // Check if buffer has valid length(at least 8).
+        if None == buff.get(7) {
+            return Err(NetCommsError {
+                kind: NetCommsErrorKind::InvalidBufferLength,
+                message: Some("Implementation from_buff for DateTime<Utc> requires buffer of length of at least 8 bytes.".to_string()),
+            })
+        }
+        let naive_datetime = NaiveDateTime::from_timestamp(usize::from_buff(buff)? as i64, 0);
+
+        Ok(DateTime::from_utc(naive_datetime, Utc))  
     }   
     
 }

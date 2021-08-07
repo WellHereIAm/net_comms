@@ -4,7 +4,11 @@
         "chrono",
         "datetime",
         "itertools",
+        "paks",
         "rqst",
+        "starpak",
+        "steamapps",
+        "stepa",
         "trunc"
     ]
 }

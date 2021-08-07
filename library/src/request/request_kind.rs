@@ -1,6 +1,4 @@
-use std::net::TcpStream;
-
-use crate::prelude::{ADDR, PORT, UserUnchecked};
+use crate::prelude::{UserUnchecked};
 
 #[derive(Debug)]
 pub struct RequestErr {}
@@ -46,11 +44,11 @@ impl RequestKind {
 
         return Ok([1, 1, 1, 1]);
 
-        let socket = format!("{}:{}", ADDR, PORT);
+        // let socket = format!("{}:{}", ADDR, PORT);
         
-        let stream = match TcpStream::connect(socket) {
-            Ok(stream) => stream,
-            Err(_) => todo!(),
-        };
+        // let stream = match TcpStream::connect(socket) {
+        //     Ok(stream) => stream,
+        //     Err(_) => todo!(),
+        // };
     }
 }

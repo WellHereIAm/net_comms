@@ -1,8 +1,10 @@
-// MAYBE CHANGE THIS LATER TO RON? PROBABLY NOT. BINARIES CONFIGS PROBABLY WILL BE IN RON.
-
 /// Minimum value is 11, 8 for packet size, 2 for packet kind, and at least 1 for content. 
 pub const MAX_PACKET_SIZE: usize = 8096;
-pub static MAX_CONTENT_IN_PACKET: usize = MAX_PACKET_SIZE - 10;
+/// Minimal size that is every packet guaranteed to have, 8 bytes are for its size and two for its kind.
+pub const PACKET_DESCRIPTION_SIZE: usize = 10;
+/// Maximum amount of bytes that a Packet can use for its content, its lower than MAX_PACKET_SIZE of PACKET_DESCRIPTION_SIZE.
+pub static MAX_PACKET_CONTENT_SIZE: usize = MAX_PACKET_SIZE - PACKET_DESCRIPTION_SIZE;
+
 pub const PORT: &str = "8000";
 pub const ADDR: &str = "127.0.0.1";
 pub const SERVER_ID: usize  = 0;

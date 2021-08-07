@@ -1,6 +1,5 @@
-use std::fs::{self, File, OpenOptions, read};
-use std::io::{BufReader, Read, Seek, SeekFrom, Write};
-use std::iter::FromIterator;
+use std::fs::{self, OpenOptions};
+use std::io::{BufReader, Read, Write};
 use std::net::TcpStream;
 use std::path::Path;
 
@@ -12,7 +11,7 @@ use crate::error::{NetCommsError, NetCommsErrorKind};
 use crate::command::Command;
 use crate::message::MessageKind;
 use crate::packet::{MetaData, PacketKind, Packet};
-use crate::config::{MAX_PACKET_SIZE, SERVER_ID};
+use crate::config::{MAX_PACKET_CONTENT_SIZE, MAX_PACKET_SIZE, SERVER_ID};
 
 
 /// Struct holds all information about message to be sent or received.
@@ -28,24 +27,27 @@ impl Message {
     
     /// Creates a new Message, which is empty.
     /// Use other methods to fill it.
-    pub fn new() -> Self {
-        Message {
+    pub fn new() -> Result<Self, NetCommsError> {
+
+        Ok(Message {
             kind: MessageKind::Unknown,
-            metadata: MetaData::new_empty(),
+            metadata: MetaData::new_empty()?,
             content: Vec::new(),
             end_data: Packet::new_empty(),
-        }
+        })
     }
 
     /// Creates a new message from Command.
     /// This method can be used only by client as it allows multiple recipients, server is always creating messages with one recipient.
-    // Result is probably unnecessary as this will be called by send variant itself? Change after command processing.
+
+    // Needs to be refactored. Some errors probably should be handled right in the function = not so many question marks.
+
     pub fn from_command(command: Command) -> Result<Self, NetCommsError> {
 
         match command {
             Command::Send(msg_kind, author_id, recipients, content, file_name) => {
 
-                let mut msg = Self::new();
+                let mut msg = Self::new()?;
 
                 let vectored_content = Self::split_to_max_packet_size(content);
 
@@ -60,52 +62,78 @@ impl Message {
                 let temp_metadata = MetaData::new(msg_kind.clone(), 0,
                                                           author_id,
                                                           SERVER_ID, recipients.clone(),
-                                                          file_name.clone());
+                                                          file_name.clone())?;
                                                       
-                let n_of_metadata_packets = Self::split_to_max_packet_size(temp_metadata.to_buff()).len();
+                let n_of_metadata_packets = Self::split_to_max_packet_size(temp_metadata.to_buff()?).len();
 
                 // Adds number of MetaData packets to number of Content packets to one End packet.
                 let msg_length = n_of_metadata_packets + n_of_content_packets + 1; 
 
-                let metadata = MetaData::new(msg_kind, msg_length, author_id, SERVER_ID, recipients, file_name);
-                
+                let metadata = MetaData::new(msg_kind, msg_length,
+                                                     author_id,
+                                         SERVER_ID, recipients,
+                                                     file_name)?;
 
                 msg.set_metadata(metadata);
                 msg.set_end_data(Packet::new(PacketKind::End));
 
                 Ok(msg)
             },
-            _ => Err(NetCommsError::new(NetCommsErrorKind::WrongCommand))
+            _ => Err(NetCommsError {
+                kind: NetCommsErrorKind::WrongCommand,
+                message: Some("Message::from_command() accepts only send command.".to_string()),
+            })
         }
     }
 
     /// This takes an ownership of self
     /// and sends a Message through given stream.
-    pub fn send(self, stream: &mut TcpStream) {
+    // Some errors probably should be handled right in the function = not so many question marks.
+    pub fn send(self, stream: &mut TcpStream) -> Result<(), NetCommsError> {
 
         // Crates multiple metadata packets if necessary and writes them to stream.
-        let metadata_buff = self.metadata.to_buff();
+        let metadata_buff = self.metadata.to_buff()?;
         let metadata_buff_split = Self::split_to_max_packet_size(metadata_buff);
 
         for buff in metadata_buff_split {
             let packet = Packet::new(PacketKind::new_metadata(buff));
-            stream.write(&packet.to_buff()).unwrap();
+            if let Err(e) = stream.write(&packet.to_buff()?) {
+                return Err(NetCommsError {
+                    kind: NetCommsErrorKind::OtherSource(Box::new(e)),
+                    message: None,
+                });
+            }
         }
                 
         // Write all content packets to stream.
         for packet in self.content {
-            stream.write(&packet.to_buff()).unwrap();
+            if let Err(e) = stream.write(&packet.to_buff()?) {
+                return Err(NetCommsError {
+                    kind: NetCommsErrorKind::OtherSource(Box::new(e)),
+                    message: None,
+                });
+            }
         }
         
-        // Write a end_data packet to stream.
-        stream.write(&self.end_data.clone().to_buff()).unwrap();
+        // Write an end_data packet to stream.
+        if let Err(e) = stream.write(&self.end_data.to_buff()?) {
+            return Err(NetCommsError {
+                kind: NetCommsErrorKind::OtherSource(Box::new(e)),
+                message: None,
+            });
+        }
+
+        Ok(())
     }
 
     /// This takes an ownership of self and unlike text message this sends
     /// metadata first, then will gradually read the file to max packet length,
     /// sends the Packet and continue to the end of the file so there is no
     /// risk of overflowing the memory with too big files.
-    pub fn send_file(self, stream: &mut TcpStream) {
+
+    // Needs to be refactored. Some errors probably should be handled right in the function = not so many question marks. Get rid of unwraps, where needed.
+
+    pub fn send_file(self, stream: &mut TcpStream) -> Result<(), NetCommsError> {
 
         let file = fs::File::open(self.metadata.file_name().unwrap()).unwrap();
         let file_length = file.metadata().unwrap().len();
@@ -114,20 +142,20 @@ impl Message {
         let n_of_content_packets: usize;
 
         if file_length as usize % MAX_PACKET_SIZE != 0 {
-            n_of_content_packets = file_length as usize / (MAX_PACKET_SIZE - 10) + 1;
+            n_of_content_packets = file_length as usize / (MAX_PACKET_CONTENT_SIZE) + 1;
         } else {
-            n_of_content_packets = file_length as usize / (MAX_PACKET_SIZE - 10);
+            n_of_content_packets = file_length as usize / (MAX_PACKET_CONTENT_SIZE);
         }
 
         // This part can be optimized, but this should work.
-        let metadata_buff = self.metadata.to_buff();
+        let metadata_buff = self.metadata.to_buff()?;
         let n_of_metadata_packets = Self::split_to_max_packet_size(metadata_buff.clone()).len();
 
         n_of_packets += n_of_metadata_packets;
         n_of_packets += n_of_content_packets;
         n_of_packets += 1;
 
-        let mut metadata = MetaData::from_buff(metadata_buff);
+        let mut metadata = MetaData::from_buff(metadata_buff)?;
         metadata.set_message_length(n_of_packets);
 
         // Yes... 
@@ -142,12 +170,11 @@ impl Message {
         metadata.set_file_name(file_name);
 
         // Crates multiple metadata packets if necessary and writes them to stream.
-        let metadata_buff = metadata.to_buff();
+        let metadata_buff = metadata.to_buff()?;
         let metadata_buff_split = Self::split_to_max_packet_size(metadata_buff);
         
         let mut id = 0;
         let n_of_mtd = metadata_buff_split.len();
-        // println!("n_of_metadata: {} mtd buff spolit {}", n_of_metadata_packets, metadata_buff_split.len());
         for buff in metadata_buff_split {
             id += 1;
             // println!("id: {}", id);
@@ -157,7 +184,7 @@ impl Message {
             } else {
                 packet = Packet::new(PacketKind::new_metadata(buff));
             }
-            stream.write(&packet.to_buff()).unwrap();
+            stream.write(&packet.to_buff()?).unwrap();
         }
 
         let mut reader = BufReader::new(file);
@@ -170,39 +197,44 @@ impl Message {
                     buff = Vec::new();
                     reader.read_to_end(&mut buff).unwrap();
                 } else {
-                    buff = vec![0_u8; MAX_PACKET_SIZE - 10];
+                    buff = vec![0_u8; MAX_PACKET_CONTENT_SIZE];
                     reader.read_exact(&mut buff).unwrap(); // This read_exact instead of read is really important.
                 }    
 
                 // file_test_vec.extend(buff.clone());
                 packet = Packet::new(PacketKind::new_content(buff));
             }
-            stream.write(&packet.to_buff()).unwrap();
+            stream.write(&packet.to_buff()?).unwrap();
         }
 
         // let mut file = OpenOptions::new().create(true).write(true).open("read").unwrap();
         // file.write(&file_test_vec);
 
 
-        stream.write(&self.end_data.clone().to_buff()).unwrap();  
+        stream.write(&self.end_data.clone().to_buff()?).unwrap();  
+
+        Ok(())
     }
 
     /// Receives a Message from given stream.
     // USE RESULT AS RETURN TYPE.
-    pub fn receive(stream: &mut TcpStream) -> Self {
+
+    // Needs to be refactored. Some errors probably should be handled right in the function = not so many question marks. Get rid of unwraps, where needed.
+
+    pub fn receive(stream: &mut TcpStream) -> Result<Self, NetCommsError> {
 
     
         // Now is this function really ugly. Rewrite it. Separate to multiple functions.
 
         // Create new empty Message.
-        let mut msg = Message::new();
+        let mut msg = Message::new()?;
         let mut metadata_buff = Vec::new(); 
 
         loop {
             // Read size of incoming packet.
             let mut size_buff = vec![0_u8; 8];
             stream.read_exact(&mut size_buff).unwrap();
-            let size = usize::from_buff(size_buff.clone());
+            let size = usize::from_buff(size_buff.clone())?;
 
             // Read rest of packet.
             let mut buff = vec![0_u8; size - 8];
@@ -213,11 +245,8 @@ impl Message {
             let buff = size_buff;
             
             // Create a packet from buffer.
-            let packet = Packet::from_buff(buff);
+            let packet = Packet::from_buff(buff)?;
             
-            let metadata_text = String::from_buff(packet.clone().kind_owned().content().unwrap());
-            // println!("Packet kind: {:?} metadata: {}", &packet.kind(), metadata_text);
-
             match packet.kind() {
                 PacketKind::MetaData(..) => {
                     metadata_buff.extend(packet.kind_owned().content().unwrap());
@@ -232,14 +261,14 @@ impl Message {
             }
         }
 
-        msg.set_metadata(MetaData::from_buff(metadata_buff));
+        msg.set_metadata(MetaData::from_buff(metadata_buff)?);
   
         // Loop to read all content packets.
         loop {
             // Read size of incoming packet.
             let mut size_buff = vec![0_u8; 8];
             stream.read_exact(&mut size_buff).unwrap();
-            let size = usize::from_buff(size_buff.clone());
+            let size = usize::from_buff(size_buff.clone())?;
 
             // Read rest of packet.
             let mut buff = vec![0_u8; size - 8];
@@ -250,7 +279,7 @@ impl Message {
             let buff = size_buff;
             
             // Create a packet from buffer.
-            let packet = Packet::from_buff(buff);
+            let packet = Packet::from_buff(buff)?;
             // println!("packet kind: {:?}", packet.clone().kind_owned());            
 
             // Get a packet kind and modify msg based on that. 
@@ -301,7 +330,7 @@ impl Message {
         // let f = fs::File::open(msg.metadata().file_name().unwrap()).unwrap();
         // println!("File len: {}", f.metadata().unwrap().len());
 
-        msg
+        Ok(msg)
     }
 
     /// Sets a metadata of Message.

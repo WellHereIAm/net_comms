@@ -1,21 +1,20 @@
 use serde::{Serialize, Deserialize};
 
 use crate::buffer::{ToBuffer, FromBuffer};
-use crate::packet::MetaData;
-use crate::packet::PacketKindError;
+use crate::error::{NetCommsError, NetCommsErrorKind};
 
 use PacketKind::*;
 
 
 /// Each variant determines kind of Packet,
-/// some variants also hold data that were or will be transmitted.
+/// some variants also hold data to be sent or received from stream..
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PacketKind {
 
     Empty,  
     // First data is length of vector, therefore number of bytes in it.
     MetaData(usize, Vec<u8>),   // Here second data hold MetaData struct encoded in RON format.
-    MetaDataEnd(usize, Vec<u8>), // Same as MetaData, just marks the end of MetaData packets.
+    MetaDataEnd(usize, Vec<u8>), // Same as MetaData, but marks the end of MetaData packets.
     Content(usize, Vec<u8>),    // Actual content of second data depends on message kind which is described in MetaData.
     Request,
     End,    // PacketKind::End signalized end of Message. // MOST LIKELY WILL ADD SOME DATA INSIDE IN FUTURE.
@@ -25,11 +24,11 @@ pub enum PacketKind {
 impl ToBuffer for PacketKind {
 
     /// This method takes an ownership of self.
-    fn to_buff(self) -> Vec<u8> {
+    fn to_buff(self) -> Result<Vec<u8>, NetCommsError> {
 
         let mut buff: Vec<u8> = Vec::new();
 
-        // First two bytes describe PacketKind, rest is optional content.
+        // First two bytes describe PacketKind, rest is an optional content.
         match self {
             Empty => buff.extend([0_u8, 0_u8]),
             MetaData(_, content) => {
@@ -49,15 +48,23 @@ impl ToBuffer for PacketKind {
             Unknown => buff.extend([255_u8, 0_u8]),
         }
 
-        buff
+        Ok(buff)
     }    
 }
 
 impl FromBuffer for PacketKind {
 
-    fn from_buff(buff: Vec<u8>) -> Self {
+    fn from_buff(buff: Vec<u8>) -> Result<PacketKind, NetCommsError> {
 
-        let kind = &buff[0..2];
+        // Check if buffer has valid length(at least 2).
+        let kind = match buff.get(1) {
+            Some(_) => &buff[0..2],
+            None => return Err(NetCommsError {
+                kind: NetCommsErrorKind::InvalidBufferLength,
+                message: Some("Implementation from_buff for PacketKind requires buffer of length of at least three bytes.".to_string()),
+            }),
+        };
+
         // Here is necessary to get whole buffer size,
         // but when size is written to PacketKind we need to remove 2 for kind.
         let buffer_size = buff.len();  
@@ -71,7 +78,7 @@ impl FromBuffer for PacketKind {
             1 => match kind[1] {
                     0 => PacketKind::MetaData(content_size, contents.to_vec()),
                     1 => PacketKind::MetaDataEnd(content_size, contents.to_vec()),
-                    _ => PacketKind::Unknown,
+                    _ => PacketKind::Unknown,   // Maybe change this to return Err?
             }
             2 => PacketKind::Content(content_size, contents.to_vec()),
             3 => PacketKind::Request,
@@ -79,7 +86,7 @@ impl FromBuffer for PacketKind {
             _ => PacketKind::Unknown,            
         };
 
-        kind   
+        Ok(kind)   
     }      
     
     
@@ -87,7 +94,7 @@ impl FromBuffer for PacketKind {
 
 impl PacketKind {
     
-    /// Creates a new PacketKind::MetaData with metadata supplied in argument.
+    /// Creates a new PacketKind::MetaData from RON encoded MetaData converted to buffer.
     /// Takes an ownership of content.
     pub fn new_metadata(content: Vec<u8>) -> Self {
 
@@ -96,7 +103,7 @@ impl PacketKind {
         MetaData(size, content)
     }
 
-    /// Creates a new PacketKind::MetaDataEnd with metadata supplied in argument.
+    /// Creates a new PacketKind::MetaDataEnd from RON encoded MetaData converted to buffer.
     /// Takes an ownership of content.
     pub fn new_metadata_end(content: Vec<u8>) -> Self {
 
@@ -113,10 +120,10 @@ impl PacketKind {
         Content(content.len(), content)
     }
     
-    /// Returns a size in number of bytes of contents, not whole packet.
+    /// Return size of content as number of bytes. Variants without any content return 0. 
     pub fn size(&self) -> usize {
 
-        // Variants without data inside returns as information about kind is not part of contents.
+        
         let size = match self {
             Empty => 0,
             MetaData(size, _) => *size,
@@ -130,7 +137,7 @@ impl PacketKind {
         size
     }
 
-    /// Returns just kind of PacketKind, data inside are invalid.
+    /// Returns only kind of PacketKind, data inside are invalid.
     pub fn kind(&self) -> PacketKind {
 
         let kind =  match self {
@@ -147,14 +154,16 @@ impl PacketKind {
     }
     
     /// This method takes an ownership of self
-    /// and returns content wrapped in Ok() if called on PacketKind::MetaData or PacketKind::Content,
+    /// and returns content wrapped in Ok() if called on PacketKind::MetaData PacketKind::MetaDataEnd or PacketKind::Content,
     /// otherwise returns PacketKindError.
-    pub fn content(self) -> Result<Vec<u8>, PacketKindError> {
+    pub fn content(self) -> Result<Vec<u8>, NetCommsError> {
 
         if let MetaData(_, content) | MetaDataEnd(_, content) | Content(_, content) = self {
             return Ok(content);
         } else {
-            return Err(PacketKindError {});
+            return Err(NetCommsError {
+                kind: NetCommsErrorKind::InvalidPacketKind,
+                message: Some("This can be used only on variants MetaData, MetaDataEnd, Content.".to_string())});
         }
     }
 }

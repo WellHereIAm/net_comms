@@ -1,11 +1,9 @@
-use std::{collections::HashMap, io::Write, net::TcpStream, thread::sleep};
-
-use utils::input;
+use std::net::TcpStream;
 
 extern crate library;
 use library::prelude::*;
-fn main() {
-    let user = User::new(25, "Štěpán".to_string(), "heslo".to_string());
+fn main() -> Result<(), NetCommsError> {
+    let user = User::new(25, "Štěpán".to_string(), "password".to_string());
     let cmd_raw = CommandRaw::get(Some("send <(recipient_1, recipient_2, ..., recipient_n)> <content> \n"));
     let cmd = cmd_raw.process(&user).unwrap();
     // println!("cmd in client: {:?}", &cmd);
@@ -26,9 +24,9 @@ fn main() {
         Ok(mut stream) => {
             if let Some(file_name) = msg.metadata().file_name() {
                 println!("Sending file: {}", file_name);
-                msg.send_file(&mut stream);
+                msg.send_file(&mut stream)?;
             } else {
-                msg.send(&mut stream);
+                msg.send(&mut stream)?;
             }
             // let time = std::time::SystemTime::now();
             // // msg.send(&mut stream);    
@@ -39,6 +37,8 @@ fn main() {
             println!("{}", e);
         },
     };
+
+    Ok(())
 
     //let user = get_user();
     //println!("{:?}", user);  
@@ -112,7 +112,7 @@ fn main() {
 //     }        
 // }
 
-fn get_user_cmd(is_first: bool) -> CommandRaw {
+fn _get_user_cmd(is_first: bool) -> CommandRaw {
 
     loop {
         let msg: &str;
