@@ -35,10 +35,9 @@ impl FromBuffer for MessageKind {
 
         // Check if buffer has valid length(at least 2, anything beyond that is discarded.).
         if None == buff.get(1) {
-            return Err(NetCommsError {
-                kind: NetCommsErrorKind::InvalidBufferLength,
-                message: Some("Implementation from_buff for MessageKind requires buffer of length of at least 2 bytes.".to_string()),
-            })
+            return Err(NetCommsError::new(
+                NetCommsErrorKind::InvalidBufferLength,
+                Some("Implementation from_buff for MessageKind requires buffer of length of at least 2 bytes.".to_string())))
         }
 
         let msg_kind = match buff[0] {

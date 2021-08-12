@@ -82,10 +82,9 @@ impl MetaData {
     pub fn to_ron(&self) -> Result<String, NetCommsError>{
         match ser::to_string(&self) {
             Ok(serialized) => Ok(serialized),
-            Err(_) => Err(NetCommsError {
-                kind: NetCommsErrorKind::SerializingFailed,
-                message: Some("Serializing MetaData struct failed.".to_string()),
-            }),
+            Err(_) => Err(NetCommsError::new(
+                NetCommsErrorKind::SerializingFailed,
+                Some("Serializing MetaData struct failed.".to_string())))
         }
     }
 
@@ -106,10 +105,9 @@ impl MetaData {
 
        match ser::to_string_pretty(&self, config) {
             Ok(serialized) => Ok(serialized),
-            Err(_) => Err(NetCommsError {
-                kind: NetCommsErrorKind::SerializingFailed,
-                message: Some("Serializing MetaData struct failed.".to_string()),
-            }),
+            Err(_) => Err(NetCommsError::new(
+                NetCommsErrorKind::SerializingFailed,
+                Some("Serializing MetaData struct failed.".to_string())))
         }
 
     }
@@ -118,10 +116,9 @@ impl MetaData {
     pub fn from_ron(ron: &String) -> Result<Self, NetCommsError> {
         match de::from_str(ron) {
             Ok(metadata) => Ok(metadata),
-            Err(_) => Err(NetCommsError {
-                kind: NetCommsErrorKind::DeserializingFailed,
-                message: Some("Deserializing of given RON to MetaData struct failed.".to_string()),
-            }),
+            Err(_) => Err(NetCommsError::new(
+                NetCommsErrorKind::DeserializingFailed,
+                Some("Deserializing of given RON to MetaData struct failed.".to_string())))
         }
     }
 

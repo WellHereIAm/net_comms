@@ -59,10 +59,9 @@ impl FromBuffer for PacketKind {
         // Check if buffer has valid length(at least 2).
         let kind = match buff.get(1) {
             Some(_) => &buff[0..2],
-            None => return Err(NetCommsError {
-                kind: NetCommsErrorKind::InvalidBufferLength,
-                message: Some("Implementation from_buff for PacketKind requires buffer of length of at least three bytes.".to_string()),
-            }),
+            None => return Err(NetCommsError::new(
+                NetCommsErrorKind::InvalidBufferLength,
+                Some("Implementation from_buff for PacketKind requires buffer of length of at least three bytes.".to_string())))
         };
 
         // Here is necessary to get whole buffer size,
@@ -161,9 +160,9 @@ impl PacketKind {
         if let MetaData(_, content) | MetaDataEnd(_, content) | Content(_, content) = self {
             return Ok(content);
         } else {
-            return Err(NetCommsError {
-                kind: NetCommsErrorKind::InvalidPacketKind,
-                message: Some("This can be used only on variants MetaData, MetaDataEnd, Content.".to_string())});
+            return Err(NetCommsError::new(
+                NetCommsErrorKind::InvalidPacketKind,
+                Some("This can be used only on variants MetaData, MetaDataEnd, Content.".to_string())));
         }
     }
 }

@@ -55,10 +55,9 @@ impl FromBuffer for usize {
 
         // Check if buffer has valid length(at least 8).
         if None == buff.get(7) {
-            return Err(NetCommsError {
-                kind: NetCommsErrorKind::InvalidBufferLength,
-                message: Some("Implementation from_buff for usize requires buffer of length of at least 8 bytes.".to_string()),
-            })
+            return Err(NetCommsError::new(
+                NetCommsErrorKind::InvalidBufferLength,
+                Some("Implementation from_buff for usize requires buffer of length of at least 8 bytes.".to_string())))
         }
 
         let mut arr = [0_u8; 8];
@@ -81,10 +80,9 @@ impl FromBuffer for String {
     fn from_buff(buff: Vec<u8>) -> Result<String, NetCommsError> {
         match String::from_utf8(buff) {
             Ok(string) => Ok(string),
-            Err(e) => Err(NetCommsError {
-                kind: NetCommsErrorKind::OtherSource(Box::new(e)),
-                message: None,
-            }),
+            Err(e) => Err(NetCommsError::new(
+                NetCommsErrorKind::OtherSource(Box::new(e)),
+                None))
         }
     }
 }
@@ -102,10 +100,9 @@ impl FromBuffer for DateTime<Utc> {
 
         // Check if buffer has valid length(at least 8).
         if None == buff.get(7) {
-            return Err(NetCommsError {
-                kind: NetCommsErrorKind::InvalidBufferLength,
-                message: Some("Implementation from_buff for DateTime<Utc> requires buffer of length of at least 8 bytes.".to_string()),
-            })
+            return Err(NetCommsError::new(
+                NetCommsErrorKind::InvalidBufferLength,
+                Some("Implementation from_buff for DateTime<Utc> requires buffer of length of at least 8 bytes.".to_string())))
         }
         let naive_datetime = NaiveDateTime::from_timestamp(usize::from_buff(buff)? as i64, 0);
 

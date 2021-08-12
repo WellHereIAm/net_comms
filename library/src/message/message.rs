@@ -1,4 +1,4 @@
-use std::fs::{self, OpenOptions};
+use std::fs::{File, OpenOptions};
 use std::io::{BufReader, Read, Write};
 use std::net::TcpStream;
 use std::path::Path;
@@ -11,7 +11,7 @@ use crate::error::{NetCommsError, NetCommsErrorKind};
 use crate::command::Command;
 use crate::message::MessageKind;
 use crate::packet::{MetaData, PacketKind, Packet};
-use crate::config::{MAX_PACKET_CONTENT_SIZE, MAX_PACKET_SIZE, SERVER_ID};
+use crate::config::{DEFAULT_ID, MAX_PACKET_CONTENT_SIZE, MAX_PACKET_SIZE, SERVER_ID};
 
 
 /// Struct holds all information about message to be sent or received.
@@ -38,89 +38,98 @@ impl Message {
     }
 
     /// Creates a new message from Command.
-    /// This method can be used only by client as it allows multiple recipients, server is always creating messages with one recipient.
-
-    // Needs to be refactored. Some errors probably should be handled right in the function = not so many question marks.
-
+    /// Messages created by this method can not be used by server as it allows multiple recipients, server always sends messages with only
+    /// one recipient, or the caller has to made sure to enter only one recipient.
     pub fn from_command(command: Command) -> Result<Self, NetCommsError> {
 
-        match command {
-            Command::Send(msg_kind, author_id, recipients, content, file_name) => {
+        if let Command::Send(msg_kind, author_id, recipients, content, file_name) = command {
 
-                let mut msg = Self::new()?;
+            let mut msg = Self::new()?; // Create a new empty Message to fill.
 
-                let vectored_content = Self::split_to_max_packet_size(content);
+            let vectored_content = Self::split_to_max_packet_size(content);
 
-                // Get number of content packets.
-                let mut n_of_content_packets = 0;
-                for vec in vectored_content.into_iter() {
-                    n_of_content_packets += 1;
-                    let packet = Packet::new(PacketKind::new_content(vec));
-                    msg.push_content(packet);
-                }
+            // Get number of content packets.
+            let mut n_of_content_packets = 0;
+            for vec in vectored_content.into_iter() {
+                n_of_content_packets += 1;
+                let packet = Packet::new(PacketKind::new_content(vec));
+                msg.push_content(packet);
+            }
 
-                let temp_metadata = MetaData::new(msg_kind.clone(), 0,
+            let recipient_id: usize;
+            if author_id != SERVER_ID {
+                recipient_id = SERVER_ID;
+            } else {
+                recipient_id = DEFAULT_ID;
+            }
+
+            // Probably should be done without creating new metadata afterwards, but should not make a big difference.
+            let temp_metadata = MetaData::new(msg_kind.clone(), 0,
                                                           author_id,
-                                                          SERVER_ID, recipients.clone(),
+                                                          recipient_id, recipients.clone(),
                                                           file_name.clone())?;
                                                       
-                let n_of_metadata_packets = Self::split_to_max_packet_size(temp_metadata.to_buff()?).len();
+            let n_of_metadata_packets = Self::split_to_max_packet_size(temp_metadata.to_buff()?).len();
 
-                // Adds number of MetaData packets to number of Content packets to one End packet.
-                let msg_length = n_of_metadata_packets + n_of_content_packets + 1; 
+            // Adds number of MetaData packets to number of Content packets to one End packet.
+            let msg_length = n_of_metadata_packets + n_of_content_packets + 1; 
 
-                let metadata = MetaData::new(msg_kind, msg_length,
+            let metadata = MetaData::new(msg_kind, msg_length,
                                                      author_id,
-                                         SERVER_ID, recipients,
+                                                     recipient_id, recipients,
                                                      file_name)?;
 
-                msg.set_metadata(metadata);
-                msg.set_end_data(Packet::new(PacketKind::End));
+            msg.set_metadata(metadata);
+            msg.set_end_data(Packet::new(PacketKind::End));
 
-                Ok(msg)
-            },
-            _ => Err(NetCommsError {
-                kind: NetCommsErrorKind::WrongCommand,
-                message: Some("Message::from_command() accepts only send command.".to_string()),
-            })
+            Ok(msg)
+
+        } else {
+            Err(NetCommsError::new(
+                NetCommsErrorKind::WrongCommand,
+                Some("Message::from_command() accepts only send command.".to_string())))
         }
     }
 
     /// This takes an ownership of self
     /// and sends a Message through given stream.
-    // Some errors probably should be handled right in the function = not so many question marks.
     pub fn send(self, stream: &mut TcpStream) -> Result<(), NetCommsError> {
 
-        // Crates multiple metadata packets if necessary and writes them to stream.
+        // Create multiple metadata packets if necessary and write them to stream.
         let metadata_buff = self.metadata.to_buff()?;
         let metadata_buff_split = Self::split_to_max_packet_size(metadata_buff);
+        let metadata_length = metadata_buff_split.len();
 
+        let mut id = 0;
         for buff in metadata_buff_split {
-            let packet = Packet::new(PacketKind::new_metadata(buff));
+            id += 1;
+            let packet: Packet;
+            if id == metadata_length {
+                packet = Packet::new(PacketKind::new_metadata_end(buff));
+            } else {
+                packet = Packet::new(PacketKind::new_metadata(buff));
+            }
             if let Err(e) = stream.write(&packet.to_buff()?) {
-                return Err(NetCommsError {
-                    kind: NetCommsErrorKind::OtherSource(Box::new(e)),
-                    message: None,
-                });
+                return Err(NetCommsError::new(
+                    NetCommsErrorKind::WritingToStreamFailed,
+                    Some(format!("Failed to write a buffer to stream. ({})", e))));
             }
         }
                 
         // Write all content packets to stream.
         for packet in self.content {
             if let Err(e) = stream.write(&packet.to_buff()?) {
-                return Err(NetCommsError {
-                    kind: NetCommsErrorKind::OtherSource(Box::new(e)),
-                    message: None,
-                });
+                return Err(NetCommsError::new(
+                    NetCommsErrorKind::WritingToStreamFailed,
+                    Some(format!("Failed to write a buffer to stream. ({})", e))));
             }
         }
         
         // Write an end_data packet to stream.
         if let Err(e) = stream.write(&self.end_data.to_buff()?) {
-            return Err(NetCommsError {
-                kind: NetCommsErrorKind::OtherSource(Box::new(e)),
-                message: None,
-            });
+            return Err(NetCommsError::new(
+                NetCommsErrorKind::WritingToStreamFailed,
+                Some(format!("Failed to write a buffer to stream. ({})", e))));
         }
 
         Ok(())
@@ -130,90 +139,116 @@ impl Message {
     /// metadata first, then will gradually read the file to max packet length,
     /// sends the Packet and continue to the end of the file so there is no
     /// risk of overflowing the memory with too big files.
-
-    // Needs to be refactored. Some errors probably should be handled right in the function = not so many question marks. Get rid of unwraps, where needed.
-
     pub fn send_file(self, stream: &mut TcpStream) -> Result<(), NetCommsError> {
 
-        let file = fs::File::open(self.metadata.file_name().unwrap()).unwrap();
-        let file_length = file.metadata().unwrap().len();
+        if let Some(file_name) = self.metadata.file_name() {
+            match File::open(&file_name) {
+                Ok(file) => {
+                    let file_length = file.metadata().unwrap().len(); // Could not find in what case this returns an error, will check later if necessary.
 
-        let mut n_of_packets = 0;
-        let n_of_content_packets: usize;
+                    let mut n_of_packets = 0;
+                    let n_of_content_packets: usize;
 
-        if file_length as usize % MAX_PACKET_SIZE != 0 {
-            n_of_content_packets = file_length as usize / (MAX_PACKET_CONTENT_SIZE) + 1;
+                    if file_length as usize % MAX_PACKET_SIZE != 0 {
+                        n_of_content_packets = file_length as usize / (MAX_PACKET_CONTENT_SIZE) + 1;
+                    } else {
+                        n_of_content_packets = file_length as usize / (MAX_PACKET_CONTENT_SIZE);
+                    }
+
+                    // This part can be optimized, by getting the length of metadata from its contents, without the need to convert it to buffer.
+                    let metadata_buff = self.metadata.to_buff()?;
+                    let n_of_metadata_packets = Self::split_to_max_packet_size(metadata_buff.clone()).len();
+                    
+                    n_of_packets += n_of_metadata_packets;
+                    n_of_packets += n_of_content_packets;
+                    n_of_packets += 1;
+
+                    let mut metadata = MetaData::from_buff(metadata_buff)?;
+                    metadata.set_message_length(n_of_packets);
+
+                    let file_name: Option<String>;
+                    match metadata.file_name() {
+                        Some(path) => {
+                            let path = Path::new(&path);
+                            file_name = path.file_name().map(|name| name.to_string_lossy().into_owned());
+                        },
+                        None => return Err(NetCommsError::new(
+                            NetCommsErrorKind::IncompleteMetaData,
+                            Some("Missing file name while trying to send a file.".to_string()))),
+                    }
+
+                    metadata.set_file_name(file_name);
+
+                    // Create multiple metadata packets if necessary and write them to stream.
+                    let metadata_buff = metadata.to_buff()?;
+                    let metadata_buff_split = Self::split_to_max_packet_size(metadata_buff);
+                    
+                    let mut id = 0;
+                    let n_of_mtd = metadata_buff_split.len();
+                    for buff in metadata_buff_split {
+                        id += 1;
+                        let packet: Packet;
+                        if id == n_of_mtd {
+                            packet = Packet::new(PacketKind::new_metadata_end(buff));
+                        } else {
+                            packet = Packet::new(PacketKind::new_metadata(buff));
+                        }
+                        
+                        if let Err(e) = stream.write(&packet.to_buff()?) {
+                            return Err(NetCommsError::new(
+                                NetCommsErrorKind::WritingToStreamFailed,
+                                Some(format!("Failed to write metadata packet to stream. ({})", e))));
+                        }
+                    }
+
+                    let mut reader = BufReader::new(file);
+                    for part in 1..=n_of_content_packets {
+                        let packet: Packet;
+                        {
+                            let mut buff: Vec<u8>;   
+                            if part == n_of_content_packets {
+                                buff = Vec::new();
+                                if let Err(e) = reader.read_to_end(&mut buff) {
+                                    return Err(NetCommsError::new(
+                                        NetCommsErrorKind::ReadingFromFileFailed,
+                                        Some(format!("Failed to read last content packet from file. ({})", e))));
+                                }
+                            } else {
+                                buff = vec![0_u8; MAX_PACKET_CONTENT_SIZE];
+                                if let Err(e) = reader.read_exact(&mut buff) {  // This read_exact instead of read is really important.
+                                    return Err(NetCommsError::new(
+                                        NetCommsErrorKind::ReadingFromFileFailed,
+                                        Some(format!("Failed to read content packet from file. ({})", e))));
+                                } 
+                            }    
+
+                            packet = Packet::new(PacketKind::new_content(buff));
+                        }
+
+                        if let Err(e) = stream.write(&packet.to_buff()?) {
+                            return Err(NetCommsError::new(
+                                NetCommsErrorKind::WritingToStreamFailed,
+                                Some(format!("Failed to write content packet to stream. ({})", e))));
+                        }
+                    }
+
+                    if let Err(e) = stream.write(&self.end_data.clone().to_buff()?) {
+                        return Err(NetCommsError::new(
+                            NetCommsErrorKind::WritingToStreamFailed,
+                            Some(format!("Failed to write end data packet to stream. ({})", e))));
+                    }  
+
+                    Ok(())
+                }
+                Err(e) => return Err(NetCommsError::new(
+                    NetCommsErrorKind::OpeningFileFailed,
+                    Some(format!("Opening a file {} failed. ({})", file_name, e)))),
+            }
         } else {
-            n_of_content_packets = file_length as usize / (MAX_PACKET_CONTENT_SIZE);
-        }
-
-        // This part can be optimized, but this should work.
-        let metadata_buff = self.metadata.to_buff()?;
-        let n_of_metadata_packets = Self::split_to_max_packet_size(metadata_buff.clone()).len();
-
-        n_of_packets += n_of_metadata_packets;
-        n_of_packets += n_of_content_packets;
-        n_of_packets += 1;
-
-        let mut metadata = MetaData::from_buff(metadata_buff)?;
-        metadata.set_message_length(n_of_packets);
-
-        // Yes... 
-        let file_name = Some(Path::new(&metadata
-                                                .file_name()
-                                                .unwrap())
-                                                .file_name()
-                                                .map(|name| name.to_string_lossy()
-                                                .into_owned())
-                                                .unwrap());
-
-        metadata.set_file_name(file_name);
-
-        // Crates multiple metadata packets if necessary and writes them to stream.
-        let metadata_buff = metadata.to_buff()?;
-        let metadata_buff_split = Self::split_to_max_packet_size(metadata_buff);
-        
-        let mut id = 0;
-        let n_of_mtd = metadata_buff_split.len();
-        for buff in metadata_buff_split {
-            id += 1;
-            // println!("id: {}", id);
-            let packet: Packet;
-            if id == n_of_mtd {
-                packet = Packet::new(PacketKind::new_metadata_end(buff));
-            } else {
-                packet = Packet::new(PacketKind::new_metadata(buff));
-            }
-            stream.write(&packet.to_buff()?).unwrap();
-        }
-
-        let mut reader = BufReader::new(file);
-        // let mut file_test_vec = Vec::new();
-        for part in 1..=n_of_content_packets {
-            let packet: Packet;
-            {
-                let mut buff: Vec<u8>;   
-                if part == n_of_content_packets {
-                    buff = Vec::new();
-                    reader.read_to_end(&mut buff).unwrap();
-                } else {
-                    buff = vec![0_u8; MAX_PACKET_CONTENT_SIZE];
-                    reader.read_exact(&mut buff).unwrap(); // This read_exact instead of read is really important.
-                }    
-
-                // file_test_vec.extend(buff.clone());
-                packet = Packet::new(PacketKind::new_content(buff));
-            }
-            stream.write(&packet.to_buff()?).unwrap();
-        }
-
-        // let mut file = OpenOptions::new().create(true).write(true).open("read").unwrap();
-        // file.write(&file_test_vec);
-
-
-        stream.write(&self.end_data.clone().to_buff()?).unwrap();  
-
-        Ok(())
+            Err(NetCommsError::new(
+                NetCommsErrorKind::IncompleteMetaData,
+                Some("File can not be sent, missing file name".to_string())))
+        }            
     }
 
     /// Receives a Message from given stream.
@@ -223,22 +258,28 @@ impl Message {
 
     pub fn receive(stream: &mut TcpStream) -> Result<Self, NetCommsError> {
 
-    
-        // Now is this function really ugly. Rewrite it. Separate to multiple functions.
-
         // Create new empty Message.
         let mut msg = Message::new()?;
         let mut metadata_buff = Vec::new(); 
 
         loop {
-            // Read size of incoming packet.
+
+            // Read size of packet.
             let mut size_buff = vec![0_u8; 8];
-            stream.read_exact(&mut size_buff).unwrap();
+            if let Err(e) = stream.read_exact(&mut size_buff) {
+                return Err(NetCommsError::new(
+                    NetCommsErrorKind::ReadingFromStreamFailed, 
+                    Some(format!("Failed to read the size of metadata packet. ({})", e))));
+            }
             let size = usize::from_buff(size_buff.clone())?;
 
             // Read rest of packet.
-            let mut buff = vec![0_u8; size - 8];
-            stream.read_exact(&mut buff).unwrap();
+            let mut buff = vec![0_u8; size - 8];    // - 8 for size of packet encoded as bytes which already exist.
+            if let Err(e) = stream.read_exact(&mut buff) {
+                return Err(NetCommsError::new(
+                    NetCommsErrorKind::ReadingFromStreamFailed, 
+                    Some(format!("Failed to read the contents of metadata packet. ({})", e))));
+            }
 
             // Connect whole buffer.
             size_buff.extend(buff);
@@ -249,14 +290,16 @@ impl Message {
             
             match packet.kind() {
                 PacketKind::MetaData(..) => {
-                    metadata_buff.extend(packet.kind_owned().content().unwrap());
+                    metadata_buff.extend(packet.kind_owned().content()?);
                 }
                 PacketKind::MetaDataEnd(..) => {
-                    metadata_buff.extend(packet.kind_owned().content().unwrap());
+                    metadata_buff.extend(packet.kind_owned().content()?);
                     break;
                 },
                 _ => {
-                    println!("Unexpected PacketKind");
+                    return Err(NetCommsError::new(
+                        NetCommsErrorKind::InvalidPacketKind, 
+                        Some(format!("Unexpected PacketKind, expected MetaData or MetaDataEnd, arrived:\n {:?}", packet.kind_owned()))));
                 }               
             }
         }
@@ -267,12 +310,20 @@ impl Message {
         loop {
             // Read size of incoming packet.
             let mut size_buff = vec![0_u8; 8];
-            stream.read_exact(&mut size_buff).unwrap();
+            if let Err(e) = stream.read_exact(&mut size_buff) {
+                return Err(NetCommsError::new(
+                    NetCommsErrorKind::ReadingFromStreamFailed, 
+                    Some(format!("Failed to read the size of content packet. ({})", e))));
+            }
             let size = usize::from_buff(size_buff.clone())?;
 
             // Read rest of packet.
-            let mut buff = vec![0_u8; size - 8];
-            stream.read_exact(&mut buff).unwrap();
+            let mut buff = vec![0_u8; size - 8];    // - 8 for size of packet encoded as bytes which already exist.
+            if let Err(e) = stream.read_exact(&mut buff) {
+                return Err(NetCommsError::new(
+                    NetCommsErrorKind::ReadingFromStreamFailed, 
+                    Some(format!("Failed to read the contents of content packet. ({})", e))));
+            }
 
             // Connect whole buffer.
             size_buff.extend(buff);
@@ -280,7 +331,6 @@ impl Message {
             
             // Create a packet from buffer.
             let packet = Packet::from_buff(buff)?;
-            // println!("packet kind: {:?}", packet.clone().kind_owned());            
 
             // Get a packet kind and modify msg based on that. 
             match packet.kind() {
@@ -294,7 +344,6 @@ impl Message {
                     println!("MetaDataEnd");
                 }
                 PacketKind::Content(..) => {
-                    // println!("file name: {:?}", msg.metadata().file_name());
                     match msg.metadata().message_kind() {
                         MessageKind::File => {
                             let mut file = OpenOptions::new()
@@ -304,12 +353,13 @@ impl Message {
                                                             .open(msg.metadata().file_name().unwrap()) //Unwrap can be used.
                                                             .unwrap();
 
-                            // println!("{}", String::from_buff(packet.clone().kind_owned().content().unwrap())); 
-                            file.write(&packet.kind_owned().content().unwrap()).unwrap();
-                            // println!("File len in loop: {}", file.metadata().unwrap().len());                            
+                            if let Err(e) = file.write(&packet.kind_owned().content()?) {
+                                return Err(NetCommsError::new(
+                                    NetCommsErrorKind::WritingToFileFailed,
+                                    Some(format!("Could not write to file. ({})", e))));
+                            }                    
                         }
                         _ => {
-                            println!("It´s else.");
                             msg.push_content(packet);
                         }
                     }
@@ -327,9 +377,6 @@ impl Message {
                 },
             } 
         }
-        // let f = fs::File::open(msg.metadata().file_name().unwrap()).unwrap();
-        // println!("File len: {}", f.metadata().unwrap().len());
-
         Ok(msg)
     }
 
@@ -358,7 +405,7 @@ impl Message {
     pub fn content(self) ->  Vec<u8> {
         let mut content: Vec<u8> = Vec::new();
         for data in self.content.into_iter() {
-            if let PacketKind::Content(_, data) = data.kind_owned() { // Beware beware the unwrap comes.
+            if let PacketKind::Content(_, data) = data.kind_owned() { 
                 content.extend(data);
             }
         }

@@ -1,7 +1,10 @@
+
 use std::net::TcpStream;
 
 extern crate library;
 use library::prelude::*;
+
+
 fn main() -> Result<(), NetCommsError> {
     let user = User::new(25, "Štěpán".to_string(), "password".to_string());
     let cmd_raw = CommandRaw::get(Some("send <(recipient_1, recipient_2, ..., recipient_n)> <content> \n"));

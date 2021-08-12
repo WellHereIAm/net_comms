@@ -7,6 +7,12 @@ pub enum NetCommsErrorKind {
     SerializingFailed,
     DeserializingFailed,
     InvalidBufferLength,
+    WritingToStreamFailed,
+    ReadingFromStreamFailed,
+    OpeningFileFailed,
+    WritingToFileFailed,
+    ReadingFromFileFailed,
+    IncompleteMetaData,
     /// Wrapper around every error not originating from this library.
     OtherSource(Box<dyn std::error::Error>),
 }

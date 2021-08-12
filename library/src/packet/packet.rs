@@ -30,14 +30,12 @@ impl FromBuffer for Packet {
 
     fn from_buff(buff: Vec<u8>) -> Result<Packet, NetCommsError>{
 
-        // Check if buffer has valid length(at least 10).
-        match buff.get(PACKET_DESCRIPTION_SIZE - 1) { // - 1 because index starts at
-            Some(_) => &buff[0..8],
-            None => return Err(NetCommsError {
-                kind: NetCommsErrorKind::InvalidBufferLength,
-                message: Some("Implementation from_buff for Packet requires buffer of length of at least 11 bytes.".to_string()),
-            }),
-        };
+        // Check if buffer has valid length(at least 10 for kinds without any content).
+        if let None = buff.get(PACKET_DESCRIPTION_SIZE - 1) {
+            return Err(NetCommsError::new(
+                NetCommsErrorKind::InvalidBufferLength,
+                Some("Implementation from_buff for Packet requires buffer of length of at least 10 bytes.".to_string())));
+        }
 
         let size = buff.len();
         let kind = PacketKind::from_buff(buff[8..size].to_vec())?; // Starts at 8 because size field takes 8 bytes in buffer.
