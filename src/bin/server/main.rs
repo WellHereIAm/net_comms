@@ -19,7 +19,7 @@ fn main() -> Result<(), NetCommsError> {
                 match msg.kind() {
                     MessageKind::File => {},
                     MessageKind::Text => {
-                        println!("{:?} \n Content: {}", &msg, String::from_buff(msg.clone().content())?);
+                        println!("Content: {}", String::from_buff(msg.clone().content())?);
                     },
                     _ => {},
                 }
