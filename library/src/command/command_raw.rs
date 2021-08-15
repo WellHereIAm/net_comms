@@ -23,51 +23,28 @@ impl CommandRaw {
     where 
         T: std::fmt::Display {
 
-    let cmd = match msg {
-        Some(msg) => {
-            let cmd: Vec<String> = input(msg).unwrap()
-                                    .split_inclusive(" ")
-                                    .map(|cmd| {String::from(cmd)})
-                                    .collect();
-            CommandRaw{vec: cmd}
-        },
-        None => {
-            let cmd: Vec<String> = input(" ").unwrap()
-                                    .split_inclusive(" ")
-                                    .map(|cmd| {String::from(cmd)})
-                                    .collect();
-            CommandRaw{vec: cmd}
-        },
-    };
+        let cmd = match msg {
+            Some(msg) => {
+                let cmd: Vec<String> = input(msg).unwrap()
+                                        .split_inclusive(" ")
+                                        .map(|cmd| {String::from(cmd)})
+                                        .collect();
+                CommandRaw{vec: cmd}
+            },
+            None => {
+                let cmd: Vec<String> = input(" ").unwrap()
+                                        .split_inclusive(" ")
+                                        .map(|cmd| {String::from(cmd)})
+                                        .collect();
+                CommandRaw{vec: cmd}
+            },
+        };
 
-    println!("cmd_raw: {:?}", &cmd);
-    cmd
-
-    // // Probably better to split at ()
-    // let cmd = match msg {
-    //     Some(msg) => {
-    //         let cmd = input(msg).unwrap()
-    //                                 .split_whitespace()
-    //                                 .map(|cmd| {String::from(cmd)})
-    //                                 .collect::<Vec<String>>();
-    //         CommandRaw{vec: cmd}
-    //     },
-    //     None => {
-    //         let cmd = input("").unwrap()
-    //                                 .split_whitespace()
-    //                                 .map(|cmd| {String::from(cmd)}).collect::<Vec<String>>();
-    //         CommandRaw{vec: cmd}
-    //     },
-    // };
+        dbg!(&cmd);
+        cmd
     }
 
-    // pub fn vec(&self) -> Vec<u8> {
-    //     self.vec.clone()
-    // }
 
-    // pub fn vec_owned(self) -> Vec<u8> {
-    //     self.vec
-    // }
 
     /// This method consumes the whole CommandRaw struct.    
     pub fn process(mut self, user: &User) -> Result<Command, NetCommsError> {
@@ -75,7 +52,6 @@ impl CommandRaw {
         match self.vec.get_mut(0) {
             Some(cmd) => {
                 let cmd = cmd.replace(" ", "");
-
                 match cmd.as_str() {
                     "register" => {
                         // Later solve situations where check returns an Err value.
@@ -115,44 +91,6 @@ impl CommandRaw {
                 }
             },
             None => todo!(),
-        }
-        // ERROR HANDLING!
-        match self.vec[0].as_str() {
-            "register" => {
-                // Later solve situations where check returns an Err value.
-                let user = CommandRaw::check_register(self).unwrap();
-                Ok(Command::Register(user))
-            },
-            "login" => {
-                // Later solve situations where check returns an Err value.
-                let user = CommandRaw::check_login(self).unwrap();
-                Ok(Command::Login(user))
-            },
-            "y" => {
-                // Finish check function
-                match CommandRaw::check_yes(self) {
-                    Ok(_) => return Ok(Command::Yes),
-                    Err(_) => todo!(),
-                    
-                };
-            },
-            "n" => {
-                // Finish check function
-                match CommandRaw::check_no(self) {
-                    Ok(_) => return Ok(Command::No),
-                    Err(_) => todo!(),
-                    
-                };
-            },
-            "send" => {
-                let msg = CommandRaw::check_send(self, &user);
-                Ok(msg.unwrap())
-            },
-            _ => {
-                // Maybe throw some error?
-                println!("Unknown command.");
-                Ok(Command::Unknown)
-            },                
         }
     }
 
@@ -251,6 +189,7 @@ impl CommandRaw {
 
         let cmd_content: String = cmd_iter.map(|string| String::from(string)).collect();
 
+        dbg!(&recipients);
         dbg!(&cmd_content);
 
         if cmd_content.is_empty()  {
