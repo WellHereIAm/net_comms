@@ -22,71 +22,74 @@ impl CommandRaw {
     where 
         T: std::fmt::Display {
 
-    let cmd = match msg {
-        Some(msg) => {
-            let cmd = input(msg).unwrap()
-                                    .split_whitespace()
-                                    .map(|cmd| {String::from(cmd)})
-                                    .collect::<Vec<String>>();
-            CommandRaw{vec: cmd}
-        },
-        None => {
-            let cmd = input("").unwrap()
-                                    .split_whitespace()
-                                    .map(|cmd| {String::from(cmd)}).collect::<Vec<String>>();
-            CommandRaw{vec: cmd}
-        },
-    };
-    cmd
+        let cmd = match msg {
+            Some(msg) => {
+                let cmd: Vec<String> = input(msg).unwrap()
+                                        .split_inclusive(" ")
+                                        .map(|cmd| {String::from(cmd)})
+                                        .collect();
+                CommandRaw{vec: cmd}
+            },
+            None => {
+                let cmd: Vec<String> = input(" ").unwrap()
+                                        .split_inclusive(" ")
+                                        .map(|cmd| {String::from(cmd)})
+                                        .collect();
+                CommandRaw{vec: cmd}
+            },
+        };
+
+        dbg!(&cmd);
+        cmd
     }
 
-    // pub fn vec(&self) -> Vec<u8> {
-    //     self.vec.clone()
-    // }
 
-    // pub fn vec_owned(self) -> Vec<u8> {
-    //     self.vec
-    // }
 
-    // This function consumes the whole CommandRaw struct.    
-    pub fn process(self, user: &User) -> Result<Command, NetCommsError> {
-        // ERROR HANDLING!
-        match self.vec[0].as_str() {
-            "register" => {
-                // Later solve situations where check returns an Err value.
-                let user = CommandRaw::check_register(self).unwrap();
-                Ok(Command::Register(user))
+    /// This method consumes the whole CommandRaw struct.    
+    pub fn process(mut self, user: &User) -> Result<Command, NetCommsError> {
+
+        match self.vec.get_mut(0) {
+            Some(cmd) => {
+                let cmd = cmd.replace(" ", "");
+                match cmd.as_str() {
+                    "register" => {
+                        // Later solve situations where check returns an Err value.
+                        let user = CommandRaw::check_register(self).unwrap();
+                        return Ok(Command::Register(user))
+                    },
+                    "login" => {
+                        // Later solve situations where check returns an Err value.
+                        let user = CommandRaw::check_login(self).unwrap();
+                        return Ok(Command::Login(user))
+                    },
+                    "y" => {
+                        // Finish check function
+                        match CommandRaw::check_yes(self) {
+                            Ok(_) => return Ok(Command::Yes),
+                            Err(_) => todo!(),
+                            
+                        };
+                    },
+                    "n" => {
+                        // Finish check function
+                        match CommandRaw::check_no(self) {
+                            Ok(_) => return Ok(Command::No),
+                            Err(_) => todo!(),
+                            
+                        };
+                    },
+                    "send" => {
+                        let msg = CommandRaw::check_send(self, &user);
+                        return Ok(msg.unwrap())
+                    },
+                    _ => {
+                        // Maybe throw some error?
+                        println!("Unknown command.");
+                        return Ok(Command::Unknown)
+                    },   
+                }
             },
-            "login" => {
-                // Later solve situations where check returns an Err value.
-                let user = CommandRaw::check_login(self).unwrap();
-                Ok(Command::Login(user))
-            },
-            "y" => {
-                // Finish check function
-                match CommandRaw::check_yes(self) {
-                    Ok(_) => return Ok(Command::Yes),
-                    Err(_) => todo!(),
-                    
-                };
-            },
-            "n" => {
-                // Finish check function
-                match CommandRaw::check_no(self) {
-                    Ok(_) => return Ok(Command::No),
-                    Err(_) => todo!(),
-                    
-                };
-            },
-            "send" => {
-                let msg = CommandRaw::check_send(self, &user);
-                Ok(msg.unwrap())
-            },
-            _ => {
-                // Maybe throw some error?
-                println!("Unknown command.");
-                Ok(Command::Unknown)
-            },                
+            None => todo!(),
         }
     }
 
@@ -118,67 +121,96 @@ impl CommandRaw {
 
     fn check_send(cmd: CommandRaw, user: &User) -> Result<Command, NetCommsError> {
 
+        let mut cmd_iter = cmd.vec.iter();
+        
+        // Used to skip send part, so it´s not added as recipient. Later will use 'if let'
+        match cmd_iter.next() {
+            Some(v) => {
+                dbg!(v);
+            },
+            None => {
+                // Return an error.
+            }
+        }
+
+        // Get all recipients.
         let mut recipients: Vec<String> = Vec::new();
-        let mut recipients_length = 0;
-        let cmd_len = cmd.vec.len();
+        let mut is_first = true;
+        let mut multiple_recipients = false;
+        loop {
+            match cmd_iter.next() {
+                Some(part) => {
 
-        match cmd.vec.get(1) {
-            Some(string) => {
+                    dbg!(&part);
 
-                if string.starts_with("(") {
+                    if part.as_str() == " " {
+                        continue;
+                    }
 
-                    let mut is_last = false;
+                    let recipient = part.replace(" ", "");
 
-                    for recipient in cmd.vec[1..cmd_len].to_vec() {
-                        
+                    if is_first {
+                        is_first = false;
+
+                        if part.starts_with("(") {
+                            multiple_recipients = true;
+                        } 
+                    }
+
+                    if multiple_recipients {
+                        let mut is_last = false;
                         if recipient.ends_with(")") {
                             is_last = true;
                         }
 
-                        let recipient = recipient.replace("(", "");
-                        let recipient = recipient.replace(")", "");
+                        if recipient.contains(",") {
+                            let recipients_part: Vec<String> = recipient.split(",")
+                                                                   .map(|x| String::from(x))
+                                                                   .collect();
 
-                        let recipients_part: Vec<String> = recipient.split(",").map(|rec| rec.to_string()).collect();
+                            for recipient in recipients_part {
+                                let recipient = Self::remove_invalid(recipient);
+                                if !recipient.is_empty() {
+                                    recipients.push(recipient);
+                                }
 
-                        for recipient in recipients_part {
-                            if recipient.len() > 0 {
+                            }
+                        } else {
+                            let recipient = Self::remove_invalid(recipient);
+                            if !recipient.is_empty() {
                                 recipients.push(recipient);
-                                recipients_length += 1;
                             }
                         }
-
+        
                         if is_last {
                             break;
                         }
+                    } else {
+                        let recipient = Self::remove_invalid(recipient);
+
+                        if !recipient.is_empty() {
+                            recipients.push(recipient);
+                        }
+                        break;
                     }
-                } else {
-                    recipients_length += 1;
-                    recipients.push(cmd.vec[1].clone());
-                }
+                },
+                None => {
+                    // Return an IOError as this command was used wrongly.
+                },
             }
-            None => {
-                // Invoke error.
-                todo!();
-            },
         }
 
-        let does_exist: bool;
-        match cmd.vec.get(recipients_length + 1) {
-            Some(_) => {
-                does_exist = true;
-            },
-            None => {
-                does_exist = false
-            }, // Invoke error
+        if recipients.is_empty() {
+            // Return an error.
         }
 
-        let mut cmd_content = String::new();
-        
-        if does_exist {
-            for mut part in cmd.vec[recipients_length + 1..cmd_len].to_vec() {
-                part.push(' ');
-                cmd_content.push_str(&part);          
-            }
+        let cmd_content: String = cmd_iter.map(|string| String::from(string)).collect();
+
+        dbg!(&recipients);
+        dbg!(&cmd_content);
+
+        if cmd_content.is_empty()  {
+            // Return an error.
         }
 
         let kind: MessageKind;
@@ -188,11 +220,15 @@ impl CommandRaw {
         // Check if the content of command is Path
         if cmd_content.starts_with("|") {
             kind = MessageKind::File;
-            cmd_content = cmd_content.replace("|", "");
+            let cmd_content = cmd_content.replace("|", "");
             let path = Path::new(&cmd_content);
             if path.is_file() {
-                // Rework this for proper Error handling.
-                file_name = Some(path.to_str().unwrap().to_string());    
+                match path.to_str() {
+                    Some(path) => file_name = Some(path.to_string()),
+                    None => {
+                        // Return an error,
+                    }
+                }
             }
         } else {
             kind = MessageKind::Text;
@@ -207,19 +243,20 @@ impl CommandRaw {
             author_id,
             recipients,
             content,
-            file_name, // Should rename this
+            file_name,
         ))
     }
-}
 
-#[derive(Debug)]
-pub struct CommandRawError;
+    /// Removes all invalid characters.
+    // Maybe should return 'Result' to signalize if the returned String is empty.
+    fn remove_invalid(recipient: String) -> String {
+        let invalid_symbols = [" ", ",", "(", ")"];
+        let mut recipient = recipient;
 
-impl std::fmt::Display for CommandRawError {
+        for symbol in invalid_symbols {
+            recipient = recipient.replace(symbol, "");
+        }
 
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "CommandRawError - TODO")
+        recipient        
     }
 }
-
-impl std::error::Error for CommandRawError {}
