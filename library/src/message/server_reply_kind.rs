@@ -1,27 +1,22 @@
+use crate::prelude::NetCommsError;
+use crate::prelude::NetCommsErrorKind;
 use serde::{Serialize, Deserialize};
-use chrono::{DateTime, NaiveDateTime, Utc};
-use ron::ser::{self, PrettyConfig};
+use ron::ser;
 use ron::de;
 
-use crate::prelude::NetCommsErrorKind;
-use crate::{packet::MetaData, prelude::{Message, NetCommsError, UserUnchecked}};
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Request {
-    Login(UserUnchecked),
-    Register(UserUnchecked),
-    GetWaitingMessages,
-    Unknown,    
+pub enum ServerReplyKind {
+    Error(String), // Message
+    User,
 }
-
-impl Request {
+impl ServerReplyKind {
 
     pub fn to_ron(&self) -> Result<String, NetCommsError>{
         match ser::to_string(&self) {
             Ok(serialized) => Ok(serialized),
             Err(_) => Err(NetCommsError::new(
                 NetCommsErrorKind::SerializingFailed,
-                Some("Serializing Request struct failed.".to_string())))
+                Some("Serializing ServerReplyKind struct failed.".to_string())))
         }
     }
 
@@ -31,13 +26,7 @@ impl Request {
             Ok(metadata) => Ok(metadata),
             Err(_) => Err(NetCommsError::new(
                 NetCommsErrorKind::DeserializingFailed,
-                Some("Deserializing of given RON to Request struct failed.".to_string())))
+                Some("Deserializing of given RON to ServerReplyKind struct failed.".to_string())))
         }
-    }
-    
-    pub fn to_message(&self) -> Result<Message, NetCommsError> {
-
-        let mut message = Message::new()?;
-        Ok(message)
     }
 }

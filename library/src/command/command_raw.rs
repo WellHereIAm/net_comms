@@ -1,10 +1,11 @@
+use std::collections::binary_heap::Iter;
 use std::path::Path;
 
 use utils::input;
 
 use crate::buffer::ToBuffer;
 use crate::command::Command;
-use crate::prelude::NetCommsError;
+use crate::prelude::{NetCommsError, NetCommsErrorKind};
 use crate::user::{User, UserUnchecked};
 use crate::message::MessageKind;
 
@@ -12,7 +13,7 @@ use crate::message::MessageKind;
 /// CommandRaw holds a vector of strings, parts of inputted command.
 #[derive(Debug)]
 pub struct CommandRaw{
-    pub vec: Vec<String>,
+    pub vec: Vec<String>, // I would like to change this to iterator in the future.
 }
 
 impl CommandRaw {
@@ -54,18 +55,18 @@ impl CommandRaw {
                 match cmd.as_str() {
                     "register" => {
                         // Later solve situations where check returns an Err value.
-                        let user = CommandRaw::check_register(self).unwrap();
-                        return Ok(Command::Register(user))
+                        let user_unchecked = CommandRaw::check_register(self)?;
+                        return Ok(Command::Register(user_unchecked, user.clone()))
                     },
                     "login" => {
                         // Later solve situations where check returns an Err value.
-                        let user = CommandRaw::check_login(self).unwrap();
-                        return Ok(Command::Login(user))
+                        let user_unchecked = CommandRaw::check_login(self).unwrap();
+                        return Ok(Command::Login(user_unchecked, user.clone()))
                     },
                     "y" => {
                         // Finish check function
                         match CommandRaw::check_yes(self) {
-                            Ok(_) => return Ok(Command::Yes),
+                            Ok(_) => return Ok(Command::Yes(user.clone())),
                             Err(_) => todo!(),
                             
                         };
@@ -73,14 +74,14 @@ impl CommandRaw {
                     "n" => {
                         // Finish check function
                         match CommandRaw::check_no(self) {
-                            Ok(_) => return Ok(Command::No),
+                            Ok(_) => return Ok(Command::No(user.clone())),
                             Err(_) => todo!(),
                             
                         };
                     },
                     "send" => {
-                        let msg = CommandRaw::check_send(self, &user);
-                        return Ok(msg.unwrap())
+                        let send_cmd = CommandRaw::check_send(self, &user)?;
+                        return Ok(send_cmd)
                     },
                     _ => {
                         // Maybe throw some error?
@@ -94,10 +95,33 @@ impl CommandRaw {
     }
 
     fn check_register(cmd: CommandRaw) -> Result<UserUnchecked, NetCommsError> {
-        // Later will perform logic to check if inputted command is a valid register command.
+
+        let cmd_vec: Vec<String> = cmd.vec
+                                        .iter()
+                                        .map(|x| Self::remove_invalid(x.to_owned()))
+                                        .filter(|x| x.as_str() != " " && x.as_str() != "register")
+                                        .map(|x| String::from(x))
+                                        .collect();
+        dbg!(&cmd_vec);
+
+        if cmd_vec.len() < 3 {
+            // Return an Error.
+        }
+
+        let username = cmd_vec[0].clone();
+        let password: String;
+        if cmd_vec[1] == cmd_vec[2] {
+            password = cmd_vec[1].clone();
+        } else {
+            return Err(NetCommsError::new(
+                NetCommsErrorKind::WrongCommand,
+                Some("Passwords does not match.".to_string())
+            ));
+        }
+
         Ok(UserUnchecked {
-            username: cmd.vec[1].clone(),
-            password: cmd.vec[2].clone(),
+            username,
+            password,
         })
     }
 
@@ -110,27 +134,24 @@ impl CommandRaw {
     }
 
     fn check_yes(_cmd: CommandRaw) -> Result<Command, NetCommsError> {
+        todo!()
         // Later will perform logic to check if inputted command is a valid yes command.
-        Ok(Command::Yes)
+        // Ok(Command::Yes)
     }
 
     fn check_no(_cmd: CommandRaw) -> Result<Command, NetCommsError> {
+        todo!()
         // Later will perform logic to check if inputted command is a valid no command.
-        Ok(Command::No)
+        // Ok(Command::No)
     }
 
     fn check_send(cmd: CommandRaw, user: &User) -> Result<Command, NetCommsError> {
 
         let mut cmd_iter = cmd.vec.iter();
         
-        // Used to skip send part, so it´s not added as recipient. Later will use 'if let'
-        match cmd_iter.next() {
-            Some(v) => {
-                dbg!(v);
-            },
-            None => {
-                // Return an error.
-            }
+        // Used to skip send part, so it´s not added as recipient.
+        if let None = cmd_iter.next() {
+            // Return an Error.
         }
 
         // Get all recipients.
@@ -249,9 +270,9 @@ impl CommandRaw {
 
     /// Removes all invalid characters.
     // Maybe should return 'Result' to signalize if the returned String is empty.
-    fn remove_invalid(recipient: String) -> String {
+    fn remove_invalid(string: String) -> String {
         let invalid_symbols = [" ", ",", "(", ")"];
-        let mut recipient = recipient;
+        let mut recipient = string;
 
         for symbol in invalid_symbols {
             recipient = recipient.replace(symbol, "");

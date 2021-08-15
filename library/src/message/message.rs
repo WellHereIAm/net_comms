@@ -12,6 +12,7 @@ use crate::command::Command;
 use crate::message::MessageKind;
 use crate::packet::{MetaData, PacketKind, Packet};
 use crate::config::{DEFAULT_ID, MAX_PACKET_CONTENT_SIZE, MAX_PACKET_SIZE, SERVER_ID};
+use crate::prelude::{Request, User};
 
 
 /// Struct holds all information about message to be sent or received.
@@ -42,53 +43,99 @@ impl Message {
     /// one recipient, or the caller has to made sure to enter only one recipient.
     pub fn from_command(command: Command) -> Result<Self, NetCommsError> {
 
-        if let Command::Send(msg_kind, author_id, recipients, content, file_name) = command {
-
-            let mut msg = Self::new()?; // Create a new empty Message to fill.
-
-            let vectored_content = Self::split_to_max_packet_size(content);
-
-            // Get number of content packets.
-            let mut n_of_content_packets = 0;
-            for vec in vectored_content.into_iter() {
-                n_of_content_packets += 1;
-                let packet = Packet::new(PacketKind::new_content(vec));
-                msg.push_content(packet);
+        match command {
+            Command::Send(msg_kind, author_id, recipients, content, file_name) => {
+                return Self::from_send_command(msg_kind, author_id, recipients, content, file_name);                
             }
-
-            let recipient_id: usize;
-            if author_id != SERVER_ID {
-                recipient_id = SERVER_ID;
-            } else {
-                recipient_id = DEFAULT_ID;
+            Command::Register(user_unchecked, author) => {
+                return Self::from_request(Request::Register(user_unchecked), author);
             }
-
-            // Probably should be done without creating new metadata afterwards, but should not make a big difference.
-            let temp_metadata = MetaData::new(msg_kind.clone(), 0,
-                                                          author_id,
-                                                          recipient_id, recipients.clone(),
-                                                          file_name.clone())?;
-                                                      
-            let n_of_metadata_packets = Self::split_to_max_packet_size(temp_metadata.to_buff()?).len();
-
-            // Adds number of MetaData packets to number of Content packets to one End packet.
-            let msg_length = n_of_metadata_packets + n_of_content_packets + 1; 
-
-            let metadata = MetaData::new(msg_kind, msg_length,
-                                                     author_id,
-                                                     recipient_id, recipients,
-                                                     file_name)?;
-
-            msg.set_metadata(metadata);
-            msg.set_end_data(Packet::new(PacketKind::End));
-
-            Ok(msg)
-
-        } else {
-            Err(NetCommsError::new(
-                NetCommsErrorKind::WrongCommand,
-                Some("Message::from_command() accepts only send command.".to_string())))
+            _ => {
+                return Err(NetCommsError::new(
+                    NetCommsErrorKind::WrongCommand,
+                    Some("Message::from_command() failed to create a message from given command.".to_string())));
+            }
         }
+    }
+
+
+    // Should extract some parts to methods as it is used multiple times.
+    fn from_send_command(msg_kind: MessageKind,
+                         author_id: usize, recipients: Vec<String>,
+                         content: Vec<u8>, file_name: Option<String>) -> Result<Self, NetCommsError> {
+
+        let mut msg = Self::new()?;    // Create a new empty Message to fill.
+
+        let vectored_content = Self::split_to_max_packet_size(content);
+
+        // Get number of content packets.
+        let n_of_content_packets = vectored_content.len();
+        for vec in vectored_content.into_iter() {
+            let packet = Packet::new(PacketKind::new_content(vec));
+            msg.push_content(packet);
+        }
+
+        let recipient_id: usize;
+        if author_id != SERVER_ID {
+            recipient_id = SERVER_ID;
+        } else {
+            recipient_id = DEFAULT_ID;
+        }
+
+        // Probably should be done without creating new metadata afterwards, but should not make a big difference.
+        let temp_metadata = MetaData::new(msg_kind.clone(), 0,
+                                                    author_id,
+                                                    recipient_id, recipients.clone(),
+                                                    file_name.clone())?;
+                                                        
+        let n_of_metadata_packets = Self::split_to_max_packet_size(temp_metadata.to_buff()?).len();
+
+        // Adds number of MetaData packets to number of Content packets to one End packet.
+        let msg_length = n_of_metadata_packets + n_of_content_packets + 1; 
+
+        let metadata = MetaData::new(msg_kind, msg_length,
+                                                author_id,
+                                                recipient_id, recipients,
+                                                file_name)?;
+
+        msg.set_metadata(metadata);
+        msg.set_end_data(Packet::new(PacketKind::End));
+
+        Ok(msg)
+    }
+
+    fn from_request(request: Request, author: User) -> Result<Self, NetCommsError> {
+        let mut msg = Self::new()?;    // Create a new empty Message to fill.
+
+        let vectored_request = Self::split_to_max_packet_size(request.to_ron()?.to_buff()?);
+
+        // Get number of content packets.
+        let n_of_content_packets = vectored_request.len();
+        for vec in vectored_request.into_iter() {
+            let packet = Packet::new(PacketKind::new_content(vec));
+            msg.push_content(packet);
+        }
+
+        // Probably should be done without creating new metadata afterwards, but should not make a big difference.
+        let temp_metadata = MetaData::new(MessageKind::Request, 0,
+                                                  author.id(),    // Really need to pass author through commands.
+                                                  SERVER_ID,vec!["SERVER".to_string()],
+                                                  None)?;
+                                                        
+        let n_of_metadata_packets = Self::split_to_max_packet_size(temp_metadata.to_buff()?).len();
+
+        // Adds number of MetaData packets to number of Content packets to one End packet.
+        let msg_length = n_of_metadata_packets + n_of_content_packets + 1; 
+
+        // Probably should be done without creating new metadata afterwards, but should not make a big difference.
+        let metadata = MetaData::new(MessageKind::Request, msg_length,
+                                                    author.id(),
+                                                    SERVER_ID, vec!["SERVER".to_string()],
+                                                    None)?;
+
+        msg.set_metadata(metadata);
+        msg.set_end_data(Packet::new(PacketKind::End));
+        Ok(msg)
     }
 
     /// This takes an ownership of self

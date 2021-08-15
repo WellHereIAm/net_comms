@@ -53,13 +53,60 @@ fn main() -> Result<(), NetCommsError> {
                                         },
                                         Err(_) => todo!(),
                                     }
-                                    
-                                    thread::sleep(Duration::new(1, 0));
                                 }
                             }                                                                       
                         },
                         MessageKind::Request => {
-                            // Match request and handle id.
+                            let request = Request::from_ron(&String::from_buff(msg.content()).unwrap()).unwrap();
+                            match request {
+                                Request::Login(user_unchecked) => todo!(),
+                                Request::Register(user_unchecked) => {
+                                    let username = user_unchecked.username;
+                                    let password = user_unchecked.password;
+                                    let mut users = users.try_lock().unwrap();
+                                    match users.get(&username) {
+                                        Some(_) => {
+                                            let mut msg = Message::new().unwrap();
+                                            let metadata = MetaData::new(MessageKind::SeverReply, 3,
+                                                                                                    SERVER_ID,
+                                                                                                    msg.metadata().author_id(),
+                                                                                                    vec!["something for now".to_string()],
+                                                                                                    None).unwrap();
+                                            msg.set_metadata(metadata);
+
+                                            let server_reply_kind = ServerReplyKind::Error("This username is already used.".to_string());
+                                            msg.push_content(Packet::new(PacketKind::new_content(server_reply_kind.to_ron()
+                                            .unwrap()
+                                            .to_buff()
+                                            .unwrap())));
+                                    
+
+                                            msg.set_end_data(Packet::new(PacketKind::End));
+
+                                            msg.send(&mut stream).unwrap();
+                                        }
+                                        None => {
+                                            let user = User::new(3, username, password);
+                                            users.insert(user.username().clone(), user.clone());
+                                            let mut msg = Message::new().unwrap();
+                                            let metadata = MetaData::new(MessageKind::SeverReply, 3,
+                                                                                                    SERVER_ID,
+                                                                                                    msg.metadata().author_id(),
+                                                                                                    vec!["something for now".to_string()],
+                                                                                                    None).unwrap();
+                                            msg.set_metadata(metadata);
+
+                                            msg.push_content(Packet::new(PacketKind::new_content(user.to_ron().unwrap().to_buff().unwrap())));
+
+                                            msg.set_end_data(Packet::new(PacketKind::End));
+
+                                            msg.send(&mut stream).unwrap();
+                                        },
+                                    }
+                                },
+                                Request::GetWaitingMessages => todo!(),
+                                Request::Unknown => todo!(),
+                            }
                         },
                         _ => {},
                     }

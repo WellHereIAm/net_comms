@@ -1,11 +1,4 @@
-Start working on prototypes of client and server
-    Multi-threading is first.
-<<<<<<< HEAD
-Get send command send exact content as now it truncates all spaces so if there are multiple spaces in row it will be reduced to only one.
-    This is biggest problem for file names.
-Switch error handling to one in error_testing. Seems like a better design for me.
-Rename methods as_, to_, into_ to use proper naming conventions.
-=======
-Rename methods as_, to_, into_ to use proper naming conventions.
-Switch error handling to one in error_rework. Seems like a better design for me, but can wait as current design works.
->>>>>>> main
+Prototype is working, now huge refactoring.
+    Solve How to use ServerReply, kind now can only at most 255 variants, should be enough, but I don't like it.
+    Clean up Message struct, client and server main - split it to multiple functions.
+        Make it more adaptable, as now many things are hard coded inside.

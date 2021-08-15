@@ -5,12 +5,37 @@ extern crate library;
 use library::prelude::*;
 
 fn main() -> Result<(), NetCommsError> {
+
+   let socket = format!("{}:{}", ADDR, PORT);
+
+    let mut user = User::default();
     let cmd_raw = CommandRaw::get(Some("register <username> <password> <password>\nlogin <username> <password>\n".to_string()));
-    let cmd = cmd_raw.process(&User::default())?;
+    let cmd = cmd_raw.process(&user)?;
+    let request = Message::from_command(cmd)?;
+
+    match TcpStream::connect(socket.clone()) {
+        Ok(mut stream) => {
+            request.send(&mut stream)?;
+            let msg = Message::receive(&mut stream)?;
+            match msg.kind() {
+                MessageKind::SeverReply => {
+                    user = User::from_ron(&String::from_buff(msg.content())?)?;
+                    dbg!(&user);
+                }
+                _ => {
+                    println!("Error vole");
+                }
+                
+            }
+        },
+        Err(_) => todo!(),
+    }
+
     let user = User::new(25, "Štěpán".to_string(), "password".to_string());
     let cmd_raw = CommandRaw::get(Some("send <(recipient_1, recipient_2, ..., recipient_n)> <content> \n"));
     let cmd = cmd_raw.process(&user).unwrap();
     let msg = Message::from_command(cmd).unwrap();
+    dbg!(&msg);
 
     // D:\Software\Steam\steamapps\common\Apex Legends\paks\Win64\pc_all.opt.starpak 40
     // D:\Software\Steam\steamapps\common\Apex Legends\paks\Win64\pc_all.starpak 5
@@ -21,7 +46,6 @@ fn main() -> Result<(), NetCommsError> {
     //                                                 .with_decimal_floats(true); 
     // println!("{}", ron::ser::to_string_pretty(&msg, config).unwrap());
 
-   let socket = format!("{}:{}", ADDR, PORT);
 
     match TcpStream::connect(socket) {
         Ok(mut stream) => {
