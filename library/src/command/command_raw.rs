@@ -136,41 +136,59 @@ impl CommandRaw {
 
         // Get all recipients.
         let mut recipients: Vec<String> = Vec::new();
+        let mut is_first = true;
+        let mut multiple_recipients = false;
         loop {
             match cmd_iter.next() {
                 Some(part) => {
+
+                    dbg!(&part);
+
                     if part.as_str() == " " {
                         continue;
                     }
-                    
-                    if part.starts_with("(") {                
-        
+
+                    let recipient = part.replace(" ", "");
+
+                    if is_first {
+                        is_first = false;
+
+                        if part.starts_with("(") {
+                            multiple_recipients = true;
+                        } 
+                    }
+
+                    if multiple_recipients {
                         let mut is_last = false;
-        
-                        if part.ends_with(")") {
+                        if recipient.ends_with(")") {
                             is_last = true;
                         }
-        
-                        // I may create some function that will later check if part is using valid symbols only, but I don´t even know what´s valid now.
-                        let recipient = part.replace("(", "");
-                        let recipient = recipient.replace(")", "");
-                        let recipient = recipient.replace(",", "");
-                        let recipient = recipient.replace(" ", "");
-        
-                        if !recipient.is_empty() {
-                            recipients.push(recipient);
+
+                        if recipient.contains(",") {
+                            let recipients_part: Vec<String> = recipient.split(",")
+                                                                   .map(|x| String::from(x))
+                                                                   .collect();
+
+                            for recipient in recipients_part {
+                                let recipient = Self::remove_invalid(recipient);
+                                if !recipient.is_empty() {
+                                    recipients.push(recipient);
+                                }
+
+                            }
+                        } else {
+                            let recipient = Self::remove_invalid(recipient);
+                            if !recipient.is_empty() {
+                                recipients.push(recipient);
+                            }
                         }
         
                         if is_last {
                             break;
                         }
                     } else {
-                        // I may create some function that will later check if part is using valid symbols only, but I don´t even know what´s valid now.
-                        let recipient = part.replace("(", "");
-                        let recipient = recipient.replace(")", "");
-                        let recipient = recipient.replace(",", "");
-                        let recipient = recipient.replace(" ", "");
-        
+                        let recipient = Self::remove_invalid(recipient);
+
                         if !recipient.is_empty() {
                             recipients.push(recipient);
                         }
@@ -228,65 +246,18 @@ impl CommandRaw {
             content,
             file_name,
         ))
+    }
 
+    /// Removes all invalid characters.
+    // Maybe should return 'Result' to signalize if the returned String is empty.
+    fn remove_invalid(recipient: String) -> String {
+        let invalid_symbols = [" ", ",", "(", ")"];
+        let mut recipient = recipient;
 
-        // match cmd.vec.get(1) {
-        //     Some(string) => {
+        for symbol in invalid_symbols {
+            recipient = recipient.replace(symbol, "");
+        }
 
-        //         if string.starts_with("(") {
-
-        //             let mut is_last = false;
-
-        //             for recipient in cmd.vec[1..cmd_len].to_vec() {
-                        
-        //                 if recipient.ends_with(")") {
-        //                     is_last = true;
-        //                 }
-
-        //                 let recipient = recipient.replace("(", "");
-        //                 let recipient = recipient.replace(")", "");
-
-        //                 let recipients_part: Vec<String> = recipient.split(",").map(|rec| rec.to_string()).collect();
-
-        //                 for recipient in recipients_part {
-        //                     if recipient.len() > 0 {
-        //                         recipients.push(recipient);
-        //                         recipients_length += 1;
-        //                     }
-        //                 }
-
-        //                 if is_last {
-        //                     break;
-        //                 }
-        //             }
-        //         } else {
-        //             recipients_length += 1;
-        //             recipients.push(cmd.vec[1].clone());
-        //         }
-        //     }
-        //     None => {
-        //         // Invoke error.
-        //         todo!();
-        //     },
-        // }
-
-        // let does_exist: bool;
-        // match cmd.vec.get(recipients_length + 1) {
-        //     Some(_) => {
-        //         does_exist = true;
-        //     },
-        //     None => {
-        //         does_exist = false
-        //     }, // Invoke error
-        // }
-
-        // let mut cmd_content = String::new();
-        
-        // if does_exist {
-        //     for mut part in cmd.vec[recipients_length + 1..cmd_len].to_vec() {
-        //         part.push(' ');
-        //         cmd_content.push_str(&part);          
-        //     }
-        // }
+        recipient        
     }
 }
