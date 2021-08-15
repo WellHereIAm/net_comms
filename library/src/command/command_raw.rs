@@ -1,4 +1,3 @@
-use std::iter::FromIterator;
 use std::path::Path;
 
 use utils::input;
@@ -120,7 +119,7 @@ impl CommandRaw {
         Ok(Command::No)
     }
 
-    fn check_send(mut cmd: CommandRaw, user: &User) -> Result<Command, NetCommsError> {
+    fn check_send(cmd: CommandRaw, user: &User) -> Result<Command, NetCommsError> {
 
         let mut cmd_iter = cmd.vec.iter();
         
