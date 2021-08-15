@@ -1,5 +1,4 @@
 Start working on prototypes of client and server
-Maybe add backtrace crate into NetCommsError
-Rework marked methods in Message.
-Get send command send exact content as now it truncates all spaces so if there are multiple spaces in row it will be reduced to only one.
-    This is biggest problem for file names.
+    Multi-threading is first.
+Rename methods as_, to_, into_ to use proper naming conventions.
+Switch error handling to one in error_rework. Seems like a better design for me, but can wait as current design works.
