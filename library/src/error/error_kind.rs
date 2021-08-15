@@ -4,6 +4,7 @@ use backtrace::Backtrace;
 #[derive(Debug)]
 pub enum NetCommsErrorKind {
     WrongCommand,   
+    InvalidCommand,
     InvalidPacketKind, 
     SerializingFailed,
     DeserializingFailed,

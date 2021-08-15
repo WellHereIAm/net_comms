@@ -18,7 +18,9 @@ pub struct CommandRaw{
 
 impl CommandRaw {
 
-    /// Gets an input from the user and splits it on every whitespace.
+    /**
+    Gets an input from the user and splits it on every whitespace, but whitespaces are included in the outputted vector.
+    */
     pub fn get<T>(msg: Option<T>) -> Self
     where 
         T: std::fmt::Display {
@@ -39,8 +41,6 @@ impl CommandRaw {
                 CommandRaw{vec: cmd}
             },
         };
-
-        dbg!(&cmd);
         cmd
     }
 
@@ -54,7 +54,6 @@ impl CommandRaw {
                 let cmd = cmd.replace(" ", "");
                 match cmd.as_str() {
                     "register" => {
-                        // Later solve situations where check returns an Err value.
                         let user_unchecked = CommandRaw::check_register(self)?;
                         return Ok(Command::Register(user_unchecked, user.clone()))
                     },
@@ -102,10 +101,11 @@ impl CommandRaw {
                                         .filter(|x| x.as_str() != " " && x.as_str() != "register")
                                         .map(|x| String::from(x))
                                         .collect();
-        dbg!(&cmd_vec);
 
         if cmd_vec.len() < 3 {
-            // Return an Error.
+            return Err(NetCommsError::new(
+                NetCommsErrorKind::InvalidCommand, 
+                Some("Command register does not have all its parts.".to_string())));
         }
 
         let username = cmd_vec[0].clone();
@@ -115,7 +115,7 @@ impl CommandRaw {
         } else {
             return Err(NetCommsError::new(
                 NetCommsErrorKind::WrongCommand,
-                Some("Passwords does not match.".to_string())
+                Some("Passwords do not match.".to_string())
             ));
         }
 

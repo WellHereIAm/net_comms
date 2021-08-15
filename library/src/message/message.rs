@@ -58,6 +58,30 @@ impl Message {
         }
     }
 
+    // fn metadata_from_command(content: Vec<u8>, message_kind: MessageKind, author_id: usize,
+    //                          recipient_id: usize, recipients: Vec<String>,
+    //                          file_name: Option<String>) -> Result<Self, NetCommsError> {
+
+    //     let mut msg = Self::new()?;
+    
+    //     let vectored_content = Self::split_to_max_packet_size(content);
+    //     let n_of_content_packets = vectored_content.len();
+    //     for vec in vectored_content.into_iter() {
+    //         let packet = Packet::new(PacketKind::new_content(vec));
+    //         msg.push_content(packet);
+    //     }
+
+    //     // Probably should be done without creating new metadata afterwards, but should not make a big difference.
+    //     let temp_metadata = MetaData::new(message_kind, 0,
+    //                                               author_id,
+    //                                               recipient_id, recipients.clone(),
+    //                                               file_name.clone())?;
+                                                        
+    //     let n_of_metadata_packets = Self::split_to_max_packet_size(temp_metadata.to_buff()?).len();
+
+
+    // }
+
 
     // Should extract some parts to methods as it is used multiple times.
     fn from_send_command(msg_kind: MessageKind,

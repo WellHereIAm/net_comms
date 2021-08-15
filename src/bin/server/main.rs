@@ -17,7 +17,8 @@ fn main() -> Result<(), NetCommsError> {
     let waiting_messages: Arc<Mutex<HashMap<usize, Vec<Message>>>> = Arc::new(Mutex::new(HashMap::new()));
 
     let mut users = HashMap::new();
-    users.insert("xxx".to_string(), User::new(1, "xxx".to_string(), "my_password".to_string())); // instead of id whole user struct should be used.
+    users.insert("xxx".to_string(), User::new(2, "xxx".to_string(), "my_password".to_string()));
+    users.insert("Lucy".to_string(), User::new(3, "xxx".to_string(), "password".to_string()));
     let arc_users = Arc::new(Mutex::new(users));
 
     for stream in listener.incoming() {
