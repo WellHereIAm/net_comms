@@ -1,0 +1,72 @@
+Date : 2021-08-14 18:01:07
+Directory : d:\stepa\Documents\Rust\net_comms
+Total : 32 files,  1396 codes, 247 comments, 372 blanks, all 2015 lines
+
+Languages
++-----------------------------+------------+------------+------------+------------+------------+
+| language                    | files      | code       | comment    | blank      | total      |
++-----------------------------+------------+------------+------------+------------+------------+
+| Rust                        |         29 |      1,370 |        244 |        364 |      1,978 |
+| TOML                        |          2 |         22 |          3 |          8 |         33 |
+| Rusty Object Notation (RON) |          1 |          4 |          0 |          0 |          4 |
++-----------------------------+------------+------------+------------+------------+------------+
+
+Directories
++------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                         | files      | code       | comment    | blank      | total      |
++------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                            |         32 |      1,396 |        247 |        372 |      2,015 |
+| library                                                                      |         27 |      1,286 |        169 |        324 |      1,779 |
+| library\src                                                                  |         26 |      1,275 |        168 |        322 |      1,765 |
+| library\src\buffer                                                           |          3 |         12 |          7 |          5 |         24 |
+| library\src\command                                                          |          3 |        188 |         24 |         47 |        259 |
+| library\src\error                                                            |          3 |        204 |          5 |         26 |        235 |
+| library\src\error_testing                                                    |          3 |         68 |          0 |         23 |         91 |
+| library\src\message                                                          |          3 |        364 |         53 |         83 |        500 |
+| library\src\packet                                                           |          4 |        294 |         57 |         94 |        445 |
+| library\src\request                                                          |          2 |         38 |          0 |         10 |         48 |
+| library\src\user                                                             |          3 |         27 |          0 |          6 |         33 |
+| src                                                                          |          4 |         99 |         76 |         42 |        217 |
+| src\bin                                                                      |          4 |         99 |         76 |         42 |        217 |
+| src\bin\client                                                               |          1 |         24 |         64 |         24 |        112 |
+| src\bin\server                                                               |          3 |         75 |         12 |         18 |        105 |
++------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++------------------------------------------------------------------------------+-----------------------------+------------+------------+------------+------------+
+| filename                                                                     | language                    | code       | comment    | blank      | total      |
++------------------------------------------------------------------------------+-----------------------------+------------+------------+------------+------------+
+| d:\stepa\Documents\Rust\net_comms\Cargo.toml                                 | TOML                        |         11 |          2 |          6 |         19 |
+| d:\stepa\Documents\Rust\net_comms\library\Cargo.toml                         | TOML                        |         11 |          1 |          2 |         14 |
+| d:\stepa\Documents\Rust\net_comms\library\src\buffer\from_buffer.rs          | Rust                        |          4 |          4 |          2 |         10 |
+| d:\stepa\Documents\Rust\net_comms\library\src\buffer\mod.rs                  | Rust                        |          4 |          0 |          1 |          5 |
+| d:\stepa\Documents\Rust\net_comms\library\src\buffer\to_buffer.rs            | Rust                        |          4 |          3 |          2 |          9 |
+| d:\stepa\Documents\Rust\net_comms\library\src\command\command.rs             | Rust                        |         19 |          1 |          7 |         27 |
+| d:\stepa\Documents\Rust\net_comms\library\src\command\command_raw.rs         | Rust                        |        165 |         23 |         39 |        227 |
+| d:\stepa\Documents\Rust\net_comms\library\src\command\mod.rs                 | Rust                        |          4 |          0 |          1 |          5 |
+| d:\stepa\Documents\Rust\net_comms\library\src\config.rs                      | Rust                        |          8 |          4 |          2 |         14 |
+| d:\stepa\Documents\Rust\net_comms\library\src\error\error.rs                 | Rust                        |        179 |          3 |         21 |        203 |
+| d:\stepa\Documents\Rust\net_comms\library\src\error\error_kind.rs            | Rust                        |         21 |          2 |          4 |         27 |
+| d:\stepa\Documents\Rust\net_comms\library\src\error\mod.rs                   | Rust                        |          4 |          0 |          1 |          5 |
+| d:\stepa\Documents\Rust\net_comms\library\src\error_testing\blanket_error.rs | Rust                        |         21 |          0 |          9 |         30 |
+| d:\stepa\Documents\Rust\net_comms\library\src\error_testing\error.rs         | Rust                        |         44 |          0 |         13 |         57 |
+| d:\stepa\Documents\Rust\net_comms\library\src\error_testing\mod.rs           | Rust                        |          3 |          0 |          1 |          4 |
+| d:\stepa\Documents\Rust\net_comms\library\src\lib.rs                         | Rust                        |         72 |         18 |         26 |        116 |
+| d:\stepa\Documents\Rust\net_comms\library\src\message\message.rs             | Rust                        |        320 |         50 |         71 |        441 |
+| d:\stepa\Documents\Rust\net_comms\library\src\message\message_kind.rs        | Rust                        |         40 |          3 |         10 |         53 |
+| d:\stepa\Documents\Rust\net_comms\library\src\message\mod.rs                 | Rust                        |          4 |          0 |          2 |          6 |
+| d:\stepa\Documents\Rust\net_comms\library\src\packet\metadata.rs             | Rust                        |        121 |         21 |         34 |        176 |
+| d:\stepa\Documents\Rust\net_comms\library\src\packet\mod.rs                  | Rust                        |          6 |          1 |          2 |          9 |
+| d:\stepa\Documents\Rust\net_comms\library\src\packet\packet.rs               | Rust                        |         57 |         14 |         21 |         92 |
+| d:\stepa\Documents\Rust\net_comms\library\src\packet\packet_kind.rs          | Rust                        |        110 |         21 |         37 |        168 |
+| d:\stepa\Documents\Rust\net_comms\library\src\request\mod.rs                 | Rust                        |          2 |          0 |          1 |          3 |
+| d:\stepa\Documents\Rust\net_comms\library\src\request\request_kind.rs        | Rust                        |         36 |          0 |          9 |         45 |
+| d:\stepa\Documents\Rust\net_comms\library\src\user\mod.rs                    | Rust                        |          4 |          0 |          1 |          5 |
+| d:\stepa\Documents\Rust\net_comms\library\src\user\user.rs                   | Rust                        |         18 |          0 |          3 |         21 |
+| d:\stepa\Documents\Rust\net_comms\library\src\user\user_unchecked.rs         | Rust                        |          5 |          0 |          2 |          7 |
+| d:\stepa\Documents\Rust\net_comms\src\bin\client\main.rs                     | Rust                        |         24 |         64 |         24 |        112 |
+| d:\stepa\Documents\Rust\net_comms\src\bin\server\config.ron                  | Rusty Object Notation (RON) |          4 |          0 |          0 |          4 |
+| d:\stepa\Documents\Rust\net_comms\src\bin\server\config.rs                   | Rust                        |          0 |          0 |          1 |          1 |
+| d:\stepa\Documents\Rust\net_comms\src\bin\server\main.rs                     | Rust                        |         71 |         12 |         17 |        100 |
+| Total                                                                        |                             |      1,396 |        247 |        372 |      2,015 |
++------------------------------------------------------------------------------+-----------------------------+------------+------------+------------+------------+

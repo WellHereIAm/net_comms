@@ -22,7 +22,6 @@ impl CommandRaw {
     where 
         T: std::fmt::Display {
 
-    // Probably better to split at ()
     let cmd = match msg {
         Some(msg) => {
             let cmd = input(msg).unwrap()

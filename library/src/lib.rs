@@ -2,6 +2,8 @@
 //! Also implements convenient wrappers  of ToBuffer and FromBuffer for some types used in this library.
 
 
+pub mod error_testing;
+
 /// Module containing FromBuffer and ToBuffer traits.
 pub mod buffer;
 /// Module used to handle user input.

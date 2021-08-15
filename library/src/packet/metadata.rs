@@ -161,4 +161,15 @@ impl MetaData {
     
         time
     }
+
+    /// Returns an author id.
+    pub fn author_id(&self) -> usize {
+        self.author_id
+    }
+
+    ///Returns recipients.
+    // Maybe create owned version, so clone is not needed?
+    pub fn recipients(&self) -> Vec<String> {
+        self.recipients.clone()
+    }
 }

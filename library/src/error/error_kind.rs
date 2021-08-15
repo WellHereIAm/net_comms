@@ -1,3 +1,4 @@
+use backtrace::Backtrace;
 
 /// Kinds of NetCommsError that can arise in this library.
 #[derive(Debug)]

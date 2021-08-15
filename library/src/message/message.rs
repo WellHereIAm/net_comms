@@ -346,6 +346,8 @@ impl Message {
                 PacketKind::Content(..) => {
                     match msg.metadata().message_kind() {
                         MessageKind::File => {
+                            // Cases where the file with the same name that already exists is send, should be solved,
+                            // as for no it just appends incoming content to the current.
                             let mut file = OpenOptions::new()
                                                             .create(true)
                                                             .append(true)
