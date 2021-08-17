@@ -1,79 +1,54 @@
 
+use std::sync::mpsc::Sender;
+use std::thread::JoinHandle;
+use std::time::Duration;
 use std::{net::TcpStream, thread};
+use std::sync::mpsc;
 
 extern crate library;
 use library::prelude::*;
 
+
+// ERROR HANDLING
 fn main() -> Result<(), NetCommsError> {
 
     let socket = format!("{}:{}", ADDR, PORT);
     let user = get_user(&User::default())?;
-    
-    let user_in_thread = user.clone();
-    let socket_in_thread = socket.clone();
-    let _ = thread::spawn(move || {
-        let user = user_in_thread;
 
-        let request = Request::GetWaitingMessages;
-        // let metadata = MetaData::new(MessageKind::Request, 3,
-        //                                                         user.id(),
-        //                                                         SERVER_ID, vec!["SERVER".to_string()],
-        //                                                         None).unwrap();
-        let content = request.to_ron().unwrap();
-        let end_data = Packet::new(PacketKind::End);
+    let (waiting_messages_transmitter, waiting_messages_receiver) = mpsc::channel::<Message>();
+    let _get_waiting_messages_handle = get_waiting_messages(user.clone(), socket.clone(), waiting_messages_transmitter);
 
-        let mut msg = Message::new().unwrap();
-        // msg.set_metadata(metadata);
-        msg.push_content(Packet::new(PacketKind::new_content(content.to_buff().unwrap())));
-        msg.set_end_data(end_data);
+    loop {
+        let cmd_raw = CommandRaw::get(Some("send <(recipient_1, recipient_2, ..., recipient_n)> <content> \n"));
+        let cmd = cmd_raw.process(&user).unwrap();
+        let msg = Message::from_command(cmd).unwrap();
+        dbg!(&msg);
 
-        match TcpStream::connect(socket_in_thread) {
+        match TcpStream::connect(&socket) {
             Ok(mut stream) => {
-                msg.send(&mut stream).unwrap();
-                match Message::receive(&mut stream) {
-                    Ok(msg) => {
-                        match msg.kind() {
-                            MessageKind::Text => println!("{}", String::from_buff(msg.content()).unwrap()),
-                            // MessageKind::File => println!("Received file from {} saved.", msg.author_id()),
-                            _ => {
-                                todo!()
-                            }
-                        }
-                        
-                    },
-                    Err(_) => todo!(),
+                if let Some(file_name) = msg.metadata().file_name() {
+                    println!("Sending file: {}", file_name);
+                    msg.send_file(&mut stream)?;
+                } else {
+                    msg.send(&mut stream)?;
                 }
+            },            
+            Err(e) => {
+                println!("{}", e);
             },
-            Err(_) => todo!(),
-        }
+        };
 
-        
-        // Here I need to periodically connect to server and ask for received messages.
-    });
-
-    let cmd_raw = CommandRaw::get(Some("send <(recipient_1, recipient_2, ..., recipient_n)> <content> \n"));
-    let cmd = cmd_raw.process(&user).unwrap();
-    let msg = Message::from_command(cmd).unwrap();
-    dbg!(&msg);
-
-
-    match TcpStream::connect(socket) {
-        Ok(mut stream) => {
-            if let Some(file_name) = msg.metadata().file_name() {
-                println!("Sending file: {}", file_name);
-                msg.send_file(&mut stream)?;
-            } else {
-                msg.send(&mut stream)?;
+        loop {
+            match waiting_messages_receiver.try_recv() {
+                Ok(message) => println!("{}", String::from_buff(message.content()).unwrap()),
+                Err(_) => break,
             }
-        },            
-        Err(e) => {
-            println!("{}", e);
-        },
-    };
-
-    Ok(())
+        }
+    }    
 }
 
+
+// Will be looping until the user had been received or until unrecoverable error.
 fn get_user(user: &User) -> Result<User, NetCommsError> {
     let socket = format!("{}:{}", ADDR, PORT);
     // Get user by login or register. Only register works now.
@@ -100,3 +75,40 @@ fn get_user(user: &User) -> Result<User, NetCommsError> {
         Err(_) => todo!(),
     }
 } 
+
+fn get_waiting_messages(user: User, socket: String, mpsc_transmitter: Sender<Message>) -> JoinHandle<()> {
+
+    thread::Builder::new().name("GetWaitingMessages".to_string()).spawn(move || {
+        // Need to solve error handling. Maybe another mpsc channel?
+        let request = Request::GetWaitingMessages;
+        let content = request.to_ron().unwrap().to_buff().unwrap();
+
+        let message_kind = MessageKind::Request;
+        let recipients = vec![SERVER_NAME.to_string()];
+
+        let metadata = MetaData::new(&content, message_kind, user, SERVER_ID, recipients, None).unwrap();
+        let end_data = Packet::new(PacketKind::End);
+
+        let mut message = Message::new().unwrap();
+        message.set_metadata(metadata);
+        for packet in Message::split_to_max_packet_size(content) {
+          message.push_content(Packet::new(PacketKind::new_content(packet)));
+        }
+       message.set_end_data(end_data);
+
+        match TcpStream::connect(socket) {
+            Ok(mut stream) => {
+                message.send(&mut stream).unwrap();
+                loop {
+                    match Message::receive(&mut stream) {
+                        Ok(message) => mpsc_transmitter.send(message).unwrap(),
+                        Err(_) => break,
+                    }
+                }
+            },
+            Err(_) => todo!(),
+        }
+
+        thread::sleep(Duration::new(1, 0));
+    }).unwrap()
+}

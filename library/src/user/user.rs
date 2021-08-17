@@ -2,6 +2,7 @@ use serde::{Serialize, Deserialize};
 use ron::ser;
 use ron::de;
 
+use crate::config::DEFAULT_USERNAME;
 use crate::prelude::{NetCommsError, NetCommsErrorKind};
 
 /// Struct to hold data about user, most likely will grow in future by a lot.
@@ -17,8 +18,8 @@ impl Default for User {
     fn default() -> Self {
         User {
             id: 1,
-            username: "default_user".to_string(),
-            password: "default".to_string(),
+            username: DEFAULT_USERNAME.to_string(),
+            password: "None".to_string(),
         }
     }
 }
@@ -32,22 +33,6 @@ impl User {
             username,
             password,
         }
-    }
-
-    /// Returns users id.
-    pub fn id(&self) -> usize {
-        self.id
-    }
-
-    /// Returns users username.
-    pub fn username(&self) -> String {
-        self.username.clone()
-    }
-
-    /// Returns users
-    // Not to sure about this one.
-    pub fn password(&self) -> String {
-        self.password.clone()
     }
 
     pub fn to_ron(&self) -> Result<String, NetCommsError>{
@@ -68,4 +53,21 @@ impl User {
                 Some("Deserializing of given RON to User struct failed.".to_string())))
         }
     }
+    
+    /// Returns users id.
+    pub fn id(&self) -> usize {
+        self.id
+    }
+
+    /// Returns users username.
+    pub fn username(&self) -> String {
+        self.username.clone()
+    }
+
+    /// Returns users
+    // Not to sure about this one.
+    pub fn password(&self) -> String {
+        self.password.clone()
+    }
+
 }

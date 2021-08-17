@@ -133,6 +133,7 @@ impl Message {
         Ok(message)  
     }
 
+    pub fn from_request(request: Request) {}
     /// This takes an ownership of self and sends a Message through given stream.
     pub fn send(self, stream: &mut TcpStream) -> Result<(), NetCommsError> {
 
