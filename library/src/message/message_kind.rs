@@ -2,6 +2,9 @@ use serde::{Serialize, Deserialize};
 
 use crate::buffer::{ToBuffer, FromBuffer};
 use crate::error::{NetCommsError, NetCommsErrorKind};
+use crate::prelude::{Request, UserUnchecked};
+
+use super::ServerReply;
 
 /// Holds a kind of every Message to be sent or received.
 #[derive(Debug, Clone, Serialize, Deserialize)]

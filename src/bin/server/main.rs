@@ -22,6 +22,7 @@ fn main() -> Result<(), NetCommsError> {
     let arc_users = Arc::new(Mutex::new(users));
 
     for stream in listener.incoming() {
+        dbg!(&arc_users.try_lock().unwrap());
         println!("Got connection.");
         match stream {
             Ok(mut stream) => {
@@ -75,7 +76,7 @@ fn main() -> Result<(), NetCommsError> {
                                                                                                     None).unwrap();
                                             msg.set_metadata(metadata);
 
-                                            let server_reply_kind = ServerReplyKind::Error("This username is already used.".to_string());
+                                            let server_reply_kind = ServerReply::Error("This username is already used.".to_string());
                                             msg.push_content(Packet::new(PacketKind::new_content(server_reply_kind.to_ron()
                                             .unwrap()
                                             .to_buff()
@@ -125,6 +126,9 @@ fn main() -> Result<(), NetCommsError> {
             },
             Err(_) => todo!(),
         }
+        // let users = Arc::clone(&arc_users);
+        // let guard = users.try_lock().unwrap();
+        // dbg!(&guard);
         println!("Handled connection.");
     }
 

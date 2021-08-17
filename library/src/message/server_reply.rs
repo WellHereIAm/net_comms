@@ -5,11 +5,11 @@ use ron::ser;
 use ron::de;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ServerReplyKind {
+pub enum ServerReply {
     Error(String), // Message
     User,
 }
-impl ServerReplyKind {
+impl ServerReply {
 
     pub fn to_ron(&self) -> Result<String, NetCommsError>{
         match ser::to_string(&self) {
