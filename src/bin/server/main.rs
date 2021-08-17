@@ -69,12 +69,12 @@ fn main() -> Result<(), NetCommsError> {
                                     match users.get(&username) {
                                         Some(_) => {
                                             let mut msg = Message::new().unwrap();
-                                            let metadata = MetaData::new(MessageKind::SeverReply, 3,
-                                                                                                    SERVER_ID,
-                                                                                                    msg.metadata().author_id(),
-                                                                                                    vec!["something for now".to_string()],
-                                                                                                    None).unwrap();
-                                            msg.set_metadata(metadata);
+                                            // let metadata = MetaData::new(MessageKind::SeverReply, 3,
+                                            //                                                         SERVER_ID,
+                                            //                                                         msg.metadata().author_id(),
+                                            //                                                         vec!["something for now".to_string()],
+                                            //                                                         None).unwrap();
+                                            // msg.set_metadata(metadata);
 
                                             let server_reply_kind = ServerReply::Error("This username is already used.".to_string());
                                             msg.push_content(Packet::new(PacketKind::new_content(server_reply_kind.to_ron()
@@ -91,12 +91,12 @@ fn main() -> Result<(), NetCommsError> {
                                             let user = User::new(3, username, password);
                                             users.insert(user.username().clone(), user.clone());
                                             let mut msg = Message::new().unwrap();
-                                            let metadata = MetaData::new(MessageKind::SeverReply, 3,
-                                                                                                    SERVER_ID,
-                                                                                                    msg.metadata().author_id(),
-                                                                                                    vec!["something for now".to_string()],
-                                                                                                    None).unwrap();
-                                            msg.set_metadata(metadata);
+                                            // let metadata = MetaData::new(MessageKind::SeverReply, 3,
+                                            //                                                         SERVER_ID,
+                                            //                                                         msg.metadata().author_id(),
+                                            //                                                         vec!["something for now".to_string()],
+                                            //                                                         None).unwrap();
+                                            // msg.set_metadata(metadata);
 
                                             msg.push_content(Packet::new(PacketKind::new_content(user.to_ron().unwrap().to_buff().unwrap())));
 

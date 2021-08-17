@@ -257,11 +257,11 @@ impl CommandRaw {
             content = cmd_content.to_buff()?;
         }
 
-        let author_id = user.id();
+        let author = user.clone();
 
         Ok(Command::Send(
             kind,
-            author_id,
+            author,
             recipients,
             content,
             file_name,
