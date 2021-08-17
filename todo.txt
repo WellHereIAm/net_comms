@@ -1,4 +1,0 @@
-Prototype is working, now huge refactoring.
-    Solve How to use ServerReply, kind now can only at most 255 variants, should be enough, but I don't like it.
-    Clean up Message struct, client and server main - split it to multiple functions.
-        Make it more adaptable, as now many things are hard coded inside.
