@@ -12,7 +12,7 @@ use crate::prelude::{Message, User};
 
 
 /// This struct holds metadata of each message to be sent or received.
-// Can grow in future.
+/// Can grow in future.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetaData {
     message_kind: MessageKind,
@@ -186,6 +186,21 @@ impl MetaData {
     pub fn set_message_length(&mut self, length: usize) {
         self.message_length = length;
     }    
+
+    /// Sets message author id.
+    pub fn set_author_id(&mut self, id: usize) {
+        self.author_id = id;
+    }
+
+    /// Sets recipient id.
+    pub fn set_recipient_id(&mut self, recipient_id: usize) {
+        self.recipient_id = recipient_id;
+    }
+
+    /// Sets recipients.
+    pub fn set_recipients(&mut self, recipients: Vec<String>) {
+        self.recipients = recipients;
+    }
 
     /// Sets file_name to MetaData.
     pub fn set_file_name(&mut self, name: Option<String>) {

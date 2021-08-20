@@ -1,5 +1,6 @@
 use crate::prelude::NetCommsError;
 use crate::prelude::NetCommsErrorKind;
+use crate::prelude::User;
 use serde::{Serialize, Deserialize};
 use ron::ser;
 use ron::de;
@@ -7,7 +8,7 @@ use ron::de;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ServerReply {
     Error(String), // Message
-    User,
+    User(User),
 }
 impl ServerReply {
 

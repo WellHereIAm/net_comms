@@ -2,7 +2,7 @@ use serde::{Serialize, Deserialize};
 use ron::ser;
 use ron::de;
 
-use crate::config::DEFAULT_USERNAME;
+use crate::config::UNKNOWN_USER_ID;
 use crate::prelude::{NetCommsError, NetCommsErrorKind};
 
 /// Struct to hold data about user, most likely will grow in future by a lot.
@@ -18,7 +18,7 @@ impl Default for User {
     fn default() -> Self {
         User {
             id: 1,
-            username: DEFAULT_USERNAME.to_string(),
+            username: UNKNOWN_USER_ID.to_string(),
             password: "None".to_string(),
         }
     }
@@ -46,6 +46,7 @@ impl User {
 
     /// Creates MetaData from RON if passed string is valid.
     pub fn from_ron(ron: &String) -> Result<Self, NetCommsError> {
+        dbg!(&ron);
         match de::from_str(ron) {
             Ok(metadata) => Ok(metadata),
             Err(_) => Err(NetCommsError::new(

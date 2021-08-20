@@ -96,11 +96,15 @@ impl CommandRaw {
     fn check_register(cmd: CommandRaw) -> Result<UserUnchecked, NetCommsError> {
 
         let cmd_vec: Vec<String> = cmd.vec
-                                        .iter()
-                                        .map(|x| Self::remove_invalid(x.to_owned()))
-                                        .filter(|x| x.as_str() != " " && x.as_str() != "register")
-                                        .map(|x| String::from(x))
-                                        .collect();
+                                      .iter()
+                                      // Removes invalid characters.
+                                      .map(|x| Self::remove_invalid(x.to_owned())) 
+                                      // Filters every element that is only empty space, even though those should not exist after last map,
+                                      // and first 'register' command.
+                                      .filter(|x| x.as_str() != " " && x.as_str() != "register") 
+                                      // Transforms every element to owned String. But now it looks obsolete, so does part of above.
+                                      .map(|x| String::from(x))
+                                      .collect();
 
         if cmd_vec.len() < 3 {
             return Err(NetCommsError::new(
@@ -126,10 +130,26 @@ impl CommandRaw {
     }
 
     fn check_login(cmd: CommandRaw) -> Result<UserUnchecked, NetCommsError> {
-        // Later will perform logic to check if inputted command is a valid login command.
+
+        let cmd_vec: Vec<String> = cmd.vec
+                                      .iter()
+                                      .map(|x| Self::remove_invalid(x.to_owned()))
+                                      .filter(|x| x.as_str() != " " && x.as_str() != "login")
+                                      .map(|x| String::from(x))
+                                      .collect();
+
+        if cmd_vec.len() < 2 {
+            return Err(NetCommsError::new(
+                NetCommsErrorKind::InvalidCommand, 
+                Some("Command login does not have all its parts.".to_string())));
+        }
+
+        let username = cmd_vec[0].clone();
+        let password = cmd_vec[1].clone();
+
         Ok(UserUnchecked {
-            username: cmd.vec[1].clone(),
-            password: cmd.vec[2].clone(),
+            username,
+            password,
         })
     }
 
@@ -161,9 +181,6 @@ impl CommandRaw {
         loop {
             match cmd_iter.next() {
                 Some(part) => {
-
-                    dbg!(&part);
-
                     if part.as_str() == " " {
                         continue;
                     }
@@ -226,9 +243,6 @@ impl CommandRaw {
         }
 
         let cmd_content: String = cmd_iter.map(|string| String::from(string)).collect();
-
-        dbg!(&recipients);
-        dbg!(&cmd_content);
 
         if cmd_content.is_empty()  {
             // Return an error.
