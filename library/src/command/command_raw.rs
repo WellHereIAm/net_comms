@@ -150,10 +150,11 @@ impl CommandRaw {
                 Some("Command register does not have all its parts.".to_string())));
         }
 
+        // Because Vec::remove moves all contents to the left, to get password, it is needed to use index 0 again.
         let username = cmd_vec.remove(0);
         let password: String;
-        if cmd_vec[1] == cmd_vec[2] {
-            password = cmd_vec.remove(1);
+        if cmd_vec[0] == cmd_vec[1] {
+            password = cmd_vec.remove(0);
         } else {
             return Err(NetCommsError::new(
                 NetCommsErrorKind::UnknownCommand,
@@ -185,8 +186,9 @@ impl CommandRaw {
                 Some("Command login does not have all its parts.".to_string())));
         }
 
+        // Because Vec::remove moves all contents to the left, to get password, it is needed to use index 0 again.
         let username = cmd_vec.remove(0);
-        let password = cmd_vec.remove(1);
+        let password = cmd_vec.remove(0);
 
         Ok(UserUnchecked {
             username,

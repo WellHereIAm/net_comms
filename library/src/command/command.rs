@@ -1,8 +1,7 @@
 use crate::message::MessageKind;
-use crate::prelude::User;
-use crate::user::UserUnchecked;
+use crate::user::{User, UserUnchecked};
 
-/// Stores command in a way that enables simple sending using RON format and [Message](crate::message::Message) through [TcpStream](std::net::TcpStream).
+/// Stores command in a way that enables simple sending using RON formaSt and [Message](crate::message::Message) through [TcpStream](std::net::TcpStream).
 /// Is usually constructed by [CommandRaw::process](crate::command::CommandRaw::process).
 #[derive(Debug)]
 pub enum Command {

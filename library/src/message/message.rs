@@ -2,7 +2,6 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufReader, Read, Write};
 use std::net::TcpStream;
 use std::path::Path;
-use std::time::Duration;
 
 use serde::{Serialize, Deserialize};
 use itertools::Itertools;
@@ -16,20 +15,59 @@ use crate::config::{MAX_PACKET_CONTENT_SIZE, MAX_PACKET_SIZE, SERVER_ID, SERVER_
 use crate::prelude::{Request, User, UserUnchecked};
 
 
-/// Struct holds all information about message to be sent or received.
+/// Container to hold all data about the message.
+///
+/// This is a key struct as it is used to send every kind of message, even though every data sent
+/// are sent like [packets](Packet) which are further transformed lower to buffer, both client and
+/// server are using [Message] to hold information about the data sent and received.
+///
+/// # Fields
+/// 
+/// `kind` -- [MessageKind] of this [Message].
+///
+/// `metadata` -- [MetaData] if this [Message], holds all information about this [Message].
+///
+/// `content` -- [Vector](Vec) of [Packets](Packet) that together contain the whole content of this [Message].
+///
+/// `end_data` -- one [Packet] with [PacketKind::End] to sign for end of this [Message].
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
     kind: MessageKind,
     metadata: MetaData,
-    // Vector of packets which together hold the whole content of Message.
-    content: Vec<Packet>, // This should hold some info about file, if that is what was sent.
+    content: Vec<Packet>, // This should hold some info about file, if that is what was sent, like size etc.
     end_data: Packet,
 }
 
 impl Message {
     
-    /// Creates a new Message, which is empty.
-    /// Use other methods to fill it.
+    /// Creates a new empty Message.
+    /// 
+    /// Created [Message] should always be declared as mutable so other methods can be used to fill it.
+    /// Those methods are:
+    /// * [Message::set_metadata]
+    /// * [Message::push_content]
+    /// * [Message::set_end_data]
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut message = Message::new().unwrap();
+    ///
+    /// let content = "Hello there.".to_string().to_buff().unwrap(); 
+    /// // Users are not usually and should not be created like that,
+    /// // here it is used only for purpose of this example.
+    /// let author = User::new(1, "some_username".to_string(), "some_password".to_string());
+    /// let recipients = vec!["Fred".to_string(), "Emilia".to_string()];
+    /// let metadata = MetaData::new(&content, MessageKind::Text, author, SERVER_ID, recipients, None);
+    /// let end_data = Packet::new(PacketKind::End);
+    /// 
+    /// message.set_metadata(metadata);
+    /// message.push_content(Packet::new(PacketKind::new_content(content)));
+    /// message.set_end_data(end_data);
+    /// ```
+    /// # Errors
+    /// 
+    /// This method should not return an error.
     pub fn new() -> Result<Self, NetCommsError> {
         Ok(Message {
             kind: MessageKind::Unknown,
@@ -39,9 +77,29 @@ impl Message {
         })
     }
 
-    /// Creates a new message from Command.
-    /// Messages created by this method can not be used by server as it allows multiple recipients, server always sends messages with only
-    /// one recipient, or the caller has to made sure to enter only one recipient.
+    /// Creates a new [Message] from [Command].
+    ///
+    /// # Arguments
+    /// 
+    /// `command` -- [Command] that should have all information necessary to create a [Message].
+    /// # Examples
+    /// 
+    /// ```
+    /// let username = "Francis".to_string();
+    /// let password = "superstrongpassword".to_string();
+    /// let user_unchecked = UserUnchecked {username, password};
+    /// let command = Command::Register(user_unchecked, User::default());
+    /// 
+    /// let message = Message::from_command(command).unwrap();
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// * This method will return an [NetCommsError] with kind [NetCommsErrorKind::UnknownCommand]
+    /// if the given [Command] is not yet supported. Supported commands are [Command::Send], [Command::Register],
+    /// [Command::Login].
+    /// * Can also return other [NetCommsError] when serializing requests or other structs, or when using [to_buff](crate::buffer::ToBuffer::to_buff)
+    /// on some types.
     pub fn from_command(command: Command) -> Result<Self, NetCommsError> {
 
         // As commands can be created only by client or in client like fashion, recipient_id will always be SERVER_ID.
@@ -63,7 +121,7 @@ impl Message {
         }
     }
 
-    /// Creates Message from 'Command::Send'.
+    /// Creates a [Message] from [Command::Send].
     fn from_send(message_kind: MessageKind,
                  author: User, recipients: Vec<String>,
                  content: Vec<u8>, file_name: Option<String>) -> Result<Self, NetCommsError> {
@@ -84,7 +142,7 @@ impl Message {
         Ok(message)    
     }
 
-    /// Creates a Message from 'Command::Register'.
+    /// Creates a [Message] from [Command::Register].
     fn from_register(user_unchecked: UserUnchecked, author: User) -> Result<Self, NetCommsError> {
 
         let mut message = Self::new()?;
@@ -92,6 +150,7 @@ impl Message {
         let request = Request::Register(user_unchecked);
         let content = request.to_ron()?.to_buff()?;
 
+        // Recipient of Request will always be a server.
         let message_kind = MessageKind::Request;
         let recipients = vec![SERVER_USERNAME.to_string().clone()];
         let file_name = None;
@@ -109,7 +168,7 @@ impl Message {
         Ok(message)  
     }
 
-    /// Creates a Message from 'Command::Login'.
+    /// Creates a [Message] from [Command::Login].
     fn from_login(user_unchecked: UserUnchecked, author: User) -> Result<Self, NetCommsError> {
 
         let mut message = Self::new()?;
@@ -117,6 +176,7 @@ impl Message {
         let request = Request::Login(user_unchecked);
         let content = request.to_ron()?.to_buff()?;
 
+        // Recipient of Request will always be a server.
         let message_kind = MessageKind::Request;
         let recipients = vec![SERVER_USERNAME.to_string().clone()];
         let file_name = None;
@@ -134,8 +194,60 @@ impl Message {
         Ok(message)  
     }
 
-    pub fn from_request(request: Request) {}
-    /// This takes an ownership of self and sends a Message through given stream.
+    /// Creates a [Message] from [Request].
+    ///
+    /// This method is used for [requests](Request) that are not coming from command, so do not have its own method
+    /// like [Request::Register] or [Request::Login] for example.
+    ///
+    /// # Fields
+    ///
+    /// * `request` -- [Request] from which this method is supposed to create a [Message].
+    /// * `author` -- [User] of client that created this [Request].
+    ///
+    /// # Errors
+    ///
+    /// * Can return [NetCommsError] when serializing requests or other structs, or when using [to_buff](crate::buffer::ToBuffer::to_buff)
+    /// on some types.
+    pub fn from_request(request: Request, author: User) -> Result<Self, NetCommsError> {
+
+        let mut message = Message::new()?;
+        let content = request.to_ron()?.to_buff()?;
+
+        // Recipient of Request will always be a server.
+        let message_kind = MessageKind::Request;
+        let recipients = vec![SERVER_USERNAME.to_string().clone()];
+        let file_name = None;
+
+        let metadata = MetaData::new(&content, message_kind, author, SERVER_ID, recipients, file_name)?;
+        message.set_metadata(metadata);
+
+        let content = Self::split_to_max_packet_size(content);
+        for buffer in content {
+            message.push_content(Packet::new(PacketKind::new_content(buffer)))
+        }
+        let end_data = Packet::new(PacketKind::End);
+        message.set_end_data(end_data);
+
+        Ok(message)  
+    }
+
+    /// This takes an ownership of self and sends a Message through given [stream](TcpStream).
+    ///
+    /// This method is used for all [message kinds](MessageKind) except [MessageKind::File]
+    /// as file has its own method to sent it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let socket = "127.0.0.1:6969";
+    /// let mut stream = TcpStream::connect(socket).unwrap();
+    ///
+    /// let message = Message::new().unwrap();
+    /// message.send().unwrap()
+    /// ```
+    ///
+    /// * Can return [NetCommsError] with kind [NetCommsErrorKind::WritingToStreamFailed] when there is an error
+    /// while writing to a stream.
     pub fn send(self, stream: &mut TcpStream) -> Result<(), NetCommsError> {
 
         // Create multiple metadata packets if necessary and write them to stream.
@@ -178,10 +290,22 @@ impl Message {
         Ok(())
     }
 
-    /// This takes an ownership of self and unlike text message this sends
-    /// metadata first, then will gradually read the file to max packet length,
-    /// sends the Packet and continue to the end of the file so there is no
-    /// risk of overflowing the memory with too big files.
+    /// This takes an ownership of self and sends a Message through given [stream](TcpStream).
+    ///
+    /// Unlike [Message::send] this is supposed to send only files, as inside a [Message] with
+    /// [MessageKind::File] is not the file stored directly. There is only its location on the
+    /// device so this method can gradually read file to [MAX_PACKET_CONTENT_SIZE] send it
+    /// as a [Packet] and then repeat until the end of file is reached. Because of this there
+    /// is no risk of overflowing the memory with too big files.
+    ///
+    /// # Errors
+    ///
+    /// * This method can return an error when opening and reading from file.
+    /// * Also can return [NetCommsError] with kind [NetCommsErrorKind::WritingToStreamFailed] when there is an error
+    /// while writing to a stream.
+    /// * Also can returns an [NetCommsErrorKind::IncompleteMetaData].
+    /// * Can return [NetCommsError] when serializing requests or other structs, or when using [to_buff](crate::buffer::ToBuffer::to_buff)
+    /// on some types.
     pub fn send_file(self, stream: &mut TcpStream) -> Result<(), NetCommsError> {
 
         if let Some(file_name) = self.metadata.file_name() {
@@ -292,10 +416,9 @@ impl Message {
     }
 
     /// Receives a Message from given stream.
-    // USE RESULT AS RETURN TYPE.
 
-    // Needs to be refactored. Some errors probably should be handled right in the function = not so many question marks. Get rid of unwraps, where needed.
-
+    // Needs to be refactored. 
+    // First of all saving files to correct location.
     pub fn receive(stream: &mut TcpStream) -> Result<Self, NetCommsError> {
 
         // Create new empty Message.
@@ -422,6 +545,7 @@ impl Message {
     }
 
     /// Sets a metadata of Message.
+    ///
     /// Takes an ownership of metadata given in argument.
     pub fn set_metadata(&mut self, metadata: MetaData) {
 
@@ -430,18 +554,20 @@ impl Message {
     }
 
     /// Adds a new Packet to content.
+    ///
     /// Takes an ownership of packet given in argument. 
     pub fn push_content(&mut self, packet: Packet) {
         self.content.push(packet);
     }
 
     /// Sets an end_data of Message.
+    ///
     /// Takes an ownership of end_data given in argument.
     pub fn set_end_data(&mut self, end_data: Packet) {
         self.end_data = end_data;
     }
 
-    /// Returns a MessageKind
+    /// Returns a MessageKind.
     pub fn kind(&self) -> MessageKind {
         self.kind.clone()
     }
@@ -451,8 +577,7 @@ impl Message {
         self.metadata.clone()
     }
 
-    /// This takes an ownership of self
-    /// and returns the whole content of all Packets as a single Vec<u8>.
+    /// This takes an ownership of self and returns the whole content of all Packets as a single Vec<u8>.
     pub fn content(self) ->  Vec<u8> {
         let mut content: Vec<u8> = Vec::new();
         for data in self.content.into_iter() {

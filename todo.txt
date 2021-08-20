@@ -1,3 +1,4 @@
-Should one more User-like struct that will be generally used, User should be stored on server only and used to create usable User-like
+Message::receive needs to save files to correct location = not to just a folder where is an app.
+Should one more User-like structs that will be generally used, User should be stored on server only and used to create usable User-like
     that will hold less information, like no password etc, just what´s needed.
 Change from usize to u32 or u64.

@@ -14,7 +14,6 @@ fn main() -> Result<(), NetCommsError> {
 
     let socket = format!("{}:{}", ADDR, PORT);
     let user = get_user(&User::default())?;
-
     let (waiting_messages_transmitter, _waiting_messages_receiver) = mpsc::channel::<Message>();
     let _get_waiting_messages_handle = get_waiting_messages(user.clone(), socket.clone(), waiting_messages_transmitter);
 
@@ -81,20 +80,7 @@ fn get_waiting_messages(user: User, socket: String, _mpsc_transmitter: Sender<Me
         loop {
             // Need to solve error handling. Maybe another mpsc channel?
             let request = Request::GetWaitingMessages;
-            let content = request.to_ron().unwrap().to_buff().unwrap();
-
-            let message_kind = MessageKind::Request;
-            let recipients = vec![SERVER_USERNAME.to_string()];
-
-            let metadata = MetaData::new(&content, message_kind, user.clone(), SERVER_ID, recipients, None).unwrap();
-            let end_data = Packet::new(PacketKind::End);
-
-            let mut message = Message::new().unwrap();
-            message.set_metadata(metadata);
-            for packet in Message::split_to_max_packet_size(content) {
-            message.push_content(Packet::new(PacketKind::new_content(packet)));
-            }
-            message.set_end_data(end_data);
+            let message = Message::from_request(request, user.clone()).unwrap();
 
             match TcpStream::connect(&socket) {
                 Ok(mut stream) => {
