@@ -22,15 +22,14 @@ fn main() -> Result<(), NetCommsError> {
     let mut id = 2;
     users.insert("xxx".to_string(), User::new(id, "xxx".to_string(), "pass".to_string()));
     id += 1;
-    users.insert("Lucy".to_string(), User::new(id, "Lucy".to_string(), "pass".to_string()));
-    id += 1;
+    // users.insert("Lucy".to_string(), User::new(id, "Lucy".to_string(), "pass".to_string()));
+    // id += 1;
     dbg!(&users);
     let users = Arc::new(Mutex::new(users));
     let id = Arc::new(Mutex::new(id));
 
     for stream in listener.incoming() {
         println!("Got connection.");
-        // println!("id: {}", *Arc::clone(&id).lock().unwrap());
         match stream {
             Ok(stream) => {
                 handle_client(stream, Arc::clone(&users), Arc::clone(&id), Arc::clone(&waiting_messages));
@@ -163,7 +162,7 @@ fn login(mut stream: TcpStream,
     let username = user_unchecked.username;
     let password = user_unchecked.password;
 
-    let mut users = users.try_lock().unwrap();
+    let users = users.try_lock().unwrap();
     match users.get(&username) {
         Some(user) => {
             if user.password() == password {
@@ -215,7 +214,7 @@ fn return_waiting_messages(mut stream: TcpStream,
     match waiting_messages.get_mut(&author.id()) {
         Some(messages) => {
             let messages_length = messages.len();
-            for index in 0..messages_length - 1 {
+            for index in 0..messages_length {
                 let mut message = messages.remove(index); 
 
                 let mut metadata = message.metadata();

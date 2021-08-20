@@ -1,6 +1,6 @@
 [package]
 name = "net_comms"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["stepa <pamallinos@email.cz>"]
 edition = "2018"
 

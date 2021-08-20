@@ -2,6 +2,7 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufReader, Read, Write};
 use std::net::TcpStream;
 use std::path::Path;
+use std::time::Duration;
 
 use serde::{Serialize, Deserialize};
 use itertools::Itertools;
@@ -302,7 +303,6 @@ impl Message {
         let mut metadata_buff = Vec::new(); 
 
         loop {
-
             // Read size of packet.
             let mut size_buff = vec![0_u8; 8];
             if let Err(e) = stream.read_exact(&mut size_buff) {
