@@ -1,26 +1,36 @@
-use std::collections::binary_heap::Iter;
 use std::path::Path;
 
 use utils::input;
 
 use crate::buffer::ToBuffer;
 use crate::command::Command;
-use crate::prelude::{NetCommsError, NetCommsErrorKind};
+use crate::error::{NetCommsError, NetCommsErrorKind};
 use crate::user::{User, UserUnchecked};
 use crate::message::MessageKind;
 
 
-/// CommandRaw holds a vector of strings, parts of inputted command.
+/// Is used to get user input through its [CommandRaw::get]
+/// # Fields
+/// 
+/// `vec` -- User input split by whitespace, with the whitespaces included.
 #[derive(Debug)]
-pub struct CommandRaw{
+pub struct CommandRaw {
     pub vec: Vec<String>, // I would like to change this to iterator in the future.
 }
 
 impl CommandRaw {
 
-    /**
-    Gets an input from the user and splits it on every whitespace, but whitespaces are included in the outputted vector.
-    */
+    /// Gets the user input from command line and return [CommandRaw].
+    ///
+    /// # Arguments
+    /// 
+    /// `msg` -- Option of anything that implements [std::fmt::Display], if some it is printed to the console.
+    ///
+    /// # Examples 
+    ///
+    /// ```
+    /// let command_raw = CommandRaw::get(Some("Write your command: \n".to_string()));
+    /// ```
     pub fn get<T>(msg: Option<T>) -> Self
     where 
         T: std::fmt::Display {
@@ -34,7 +44,8 @@ impl CommandRaw {
                 CommandRaw{vec: cmd}
             },
             None => {
-                let cmd: Vec<String> = input(" ").unwrap()
+                // Here is an empty String instead of msg from argument.
+                let cmd: Vec<String> = input("").unwrap()
                                         .split_inclusive(" ")
                                         .map(|cmd| {String::from(cmd)})
                                         .collect();
@@ -46,9 +57,35 @@ impl CommandRaw {
 
 
 
-    /// This method consumes the whole CommandRaw struct.    
+    /// This method takes an ownership of [self] and returns [Command] if successful.
+    /// 
+    /// # Arguments
+    ///
+    /// `user` -- A reference to [User] from whom this command should come from. 
+    ///
+    /// # Examples 
+    ///
+    /// ```
+    /// // Users are not usually and should not be created like that,
+    /// // here it is used only for purpose of this example.
+    /// let user = User::new(1, "some_username".to_string(), "some_password".to_string());
+    /// let command_raw = CommandRaw::get(Some("Write your command: \n".to_string()));
+    /// ```
+    /// Here is created a [Command], that can be send using [Message](crate::message::Message).
+    /// ```
+    /// # let user = User::new(1, "some_username".to_string(), "some_password".to_string());
+    /// # let command_raw = CommandRaw::get(Some("Write your command: \n".to_string()));
+    /// let command = command_raw.process().unwrap(); 
+    /// ```
+    ///
+    /// # Errors
+    /// 
+    /// * Usual cause of error inside this method is [InvalidCommand](NetCommsErrorKind::InvalidCommand) or [UnknownCommand](NetCommsErrorKind::UnknownCommand)
+    /// which are caused by user invalid user input, those are recoverable errors.
+    /// * This can also return other [NetCommsError].
     pub fn process(mut self, user: &User) -> Result<Command, NetCommsError> {
 
+        // Match for known commands.
         match self.vec.get_mut(0) {
             Some(cmd) => {
                 let cmd = cmd.replace(" ", "");
@@ -83,42 +120,43 @@ impl CommandRaw {
                         return Ok(send_cmd)
                     },
                     _ => {
-                        // Maybe throw some error?
-                        println!("Unknown command.");
-                        return Ok(Command::Unknown)
+                        return Err(NetCommsError::new(
+                            NetCommsErrorKind::UnknownCommand,
+                            None));
                     },   
                 }
             },
-            None => todo!(),
+            None => return Err(NetCommsError::new(
+                NetCommsErrorKind::UnknownCommand,
+                None)),
         }
     }
 
+    /// Checks if given command is valid register command.
     fn check_register(cmd: CommandRaw) -> Result<UserUnchecked, NetCommsError> {
 
-        let cmd_vec: Vec<String> = cmd.vec
+        let mut cmd_vec: Vec<String> = cmd.vec
                                       .iter()
                                       // Removes invalid characters.
                                       .map(|x| Self::remove_invalid(x.to_owned())) 
-                                      // Filters every element that is only empty space, even though those should not exist after last map,
-                                      // and first 'register' command.
-                                      .filter(|x| x.as_str() != " " && x.as_str() != "register") 
-                                      // Transforms every element to owned String. But now it looks obsolete, so does part of above.
-                                      .map(|x| String::from(x))
+                                      // Removes first, "register", element.
+                                      .filter(|x| x.as_str() != "register") 
                                       .collect();
 
+        // Safety check if the command has correct length.
         if cmd_vec.len() < 3 {
             return Err(NetCommsError::new(
                 NetCommsErrorKind::InvalidCommand, 
                 Some("Command register does not have all its parts.".to_string())));
         }
 
-        let username = cmd_vec[0].clone();
+        let username = cmd_vec.remove(0);
         let password: String;
         if cmd_vec[1] == cmd_vec[2] {
-            password = cmd_vec[1].clone();
+            password = cmd_vec.remove(1);
         } else {
             return Err(NetCommsError::new(
-                NetCommsErrorKind::WrongCommand,
+                NetCommsErrorKind::UnknownCommand,
                 Some("Passwords do not match.".to_string())
             ));
         }
@@ -129,23 +167,26 @@ impl CommandRaw {
         })
     }
 
+    /// Checks if given command is valid register command.
     fn check_login(cmd: CommandRaw) -> Result<UserUnchecked, NetCommsError> {
 
-        let cmd_vec: Vec<String> = cmd.vec
+        let mut cmd_vec: Vec<String> = cmd.vec
                                       .iter()
-                                      .map(|x| Self::remove_invalid(x.to_owned()))
-                                      .filter(|x| x.as_str() != " " && x.as_str() != "login")
-                                      .map(|x| String::from(x))
+                                      // Removes invalid characters.
+                                      .map(|x| Self::remove_invalid(x.to_owned())) 
+                                      // Removes first, "login", element.
+                                      .filter(|x| x.as_str() != "login") 
                                       .collect();
 
+        // Safety check if the command has correct length.
         if cmd_vec.len() < 2 {
             return Err(NetCommsError::new(
                 NetCommsErrorKind::InvalidCommand, 
                 Some("Command login does not have all its parts.".to_string())));
         }
 
-        let username = cmd_vec[0].clone();
-        let password = cmd_vec[1].clone();
+        let username = cmd_vec.remove(0);
+        let password = cmd_vec.remove(1);
 
         Ok(UserUnchecked {
             username,
@@ -165,13 +206,16 @@ impl CommandRaw {
         // Ok(Command::No)
     }
 
+    /// Checks if given command is valid send command.
     fn check_send(cmd: CommandRaw, user: &User) -> Result<Command, NetCommsError> {
 
         let mut cmd_iter = cmd.vec.iter();
         
         // Used to skip send part, so it´s not added as recipient.
         if let None = cmd_iter.next() {
-            // Return an Error.
+            return Err(NetCommsError::new(
+                NetCommsErrorKind::InvalidCommand, 
+                None));
         }
 
         // Get all recipients.
@@ -233,26 +277,33 @@ impl CommandRaw {
                     }
                 },
                 None => {
-                    // Return an IOError as this command was used wrongly.
+                    return Err(NetCommsError::new(
+                        NetCommsErrorKind::InvalidCommand, 
+                        Some("command \"send\" needs to be followed by recipient/s and content.".to_string())));
                 },
             }
         }
 
         if recipients.is_empty() {
-            // Return an error.
+            return Err(NetCommsError::new(
+                NetCommsErrorKind::InvalidCommand, 
+                Some("No recipients in \"send\" command.".to_string())));
         }
 
+        // Change content to owned String.
         let cmd_content: String = cmd_iter.map(|string| String::from(string)).collect();
 
         if cmd_content.is_empty()  {
-            // Return an error.
+            return Err(NetCommsError::new(
+                NetCommsErrorKind::InvalidCommand, 
+                Some("No content in \"send\" command.".to_string())));
         }
 
         let kind: MessageKind;
         let mut file_name: Option<String> = None;
         let mut content = Vec::new();
 
-        // Check if the content of command is Path
+        // Check if the content of command is a Path
         if cmd_content.starts_with("|") {
             kind = MessageKind::File;
             let cmd_content = cmd_content.replace("|", "");
@@ -261,7 +312,9 @@ impl CommandRaw {
                 match path.to_str() {
                     Some(path) => file_name = Some(path.to_string()),
                     None => {
-                        // Return an error,
+                        return Err(NetCommsError::new(
+                            NetCommsErrorKind::InvalidCommand, 
+                            Some("Given file does not exist.".to_string())));
                     }
                 }
             }
@@ -283,7 +336,6 @@ impl CommandRaw {
     }
 
     /// Removes all invalid characters.
-    // Maybe should return 'Result' to signalize if the returned String is empty.
     fn remove_invalid(string: String) -> String {
         let invalid_symbols = [" ", ",", "(", ")"];
         let mut recipient = string;

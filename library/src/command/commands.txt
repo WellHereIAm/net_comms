@@ -1,4 +1,9 @@
+REGISTER COMMAND:
+register <username> <password> <password>
+
+LOGIN COMMAND:
+login <username> <password>
 
 SEND COMMAND: 
-send <recipient>/<(recipient_1, recipient_2, ..., recipient_n)> <content>
+send <recipient>/<(recipient_1, recipient_2, ..., recipient_n)> <content>/|<path to file>
 

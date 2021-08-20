@@ -44,7 +44,7 @@ fn main() -> Result<(), NetCommsError> {
 fn get_user(user: &User) -> Result<User, NetCommsError> {
     let socket = format!("{}:{}", ADDR, PORT);
     // Get user by login or register. Only register works now.
-    let mut user = user.clone();
+    let user = user.clone();
     let cmd_raw = CommandRaw::get(Some("register <username> <password> <password>\nlogin <username> <password>\n".to_string()));
     dbg!(&cmd_raw);
     let cmd = cmd_raw.process(&user)?;
@@ -74,7 +74,7 @@ fn get_user(user: &User) -> Result<User, NetCommsError> {
     }
 } 
 
-fn get_waiting_messages(user: User, socket: String, mpsc_transmitter: Sender<Message>) -> JoinHandle<()> {
+fn get_waiting_messages(user: User, socket: String, _mpsc_transmitter: Sender<Message>) -> JoinHandle<()> {
 
     thread::Builder::new().name("GetWaitingMessages".to_string()).spawn(move || {
 
@@ -84,7 +84,7 @@ fn get_waiting_messages(user: User, socket: String, mpsc_transmitter: Sender<Mes
             let content = request.to_ron().unwrap().to_buff().unwrap();
 
             let message_kind = MessageKind::Request;
-            let recipients = vec![SERVER_NAME.to_string()];
+            let recipients = vec![SERVER_USERNAME.to_string()];
 
             let metadata = MetaData::new(&content, message_kind, user.clone(), SERVER_ID, recipients, None).unwrap();
             let end_data = Packet::new(PacketKind::End);

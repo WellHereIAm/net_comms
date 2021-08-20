@@ -1,10 +1,9 @@
 use serde::{Serialize, Deserialize};
-use chrono::{DateTime, NaiveDateTime, Utc};
-use ron::ser::{self, PrettyConfig};
+use ron::ser;
 use ron::de;
 
 use crate::prelude::NetCommsErrorKind;
-use crate::{packet::MetaData, prelude::{Message, NetCommsError, UserUnchecked}};
+use crate::prelude::{Message, NetCommsError, UserUnchecked};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Request {
@@ -37,7 +36,7 @@ impl Request {
     
     pub fn to_message(&self) -> Result<Message, NetCommsError> {
 
-        let mut message = Message::new()?;
+        let message = Message::new()?;
         Ok(message)
     }
 }

@@ -60,7 +60,7 @@ impl FromBuffer for PacketKind {
         let kind = match buff.get(1) {
             Some(_) => &buff[0..2],
             None => return Err(NetCommsError::new(
-                NetCommsErrorKind::InvalidBufferLength,
+                NetCommsErrorKind::InvalidBufferSize,
                 Some("Implementation from_buff for PacketKind requires buffer of length of at least three bytes.".to_string())))
         };
 

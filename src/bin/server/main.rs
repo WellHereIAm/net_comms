@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 use std::net::{TcpListener, TcpStream};
 use std::thread;
-use std::sync::{Arc, Mutex, MutexGuard, RwLock, mpsc};
-use std::time::Duration;
+use std::sync::{Arc, Mutex};
 
 use library::prelude::*;
 
@@ -18,12 +17,8 @@ fn main() -> Result<(), NetCommsError> {
     let waiting_messages: Arc<Mutex<HashMap<usize, Vec<Message>>>> = Arc::new(Mutex::new(HashMap::new()));
 
 
-    let mut users = HashMap::new();
-    let mut id = 2;
-    users.insert("xxx".to_string(), User::new(id, "xxx".to_string(), "pass".to_string()));
-    id += 1;
-    // users.insert("Lucy".to_string(), User::new(id, "Lucy".to_string(), "pass".to_string()));
-    // id += 1;
+    let users = HashMap::new();
+    let id = 2;
     dbg!(&users);
     let users = Arc::new(Mutex::new(users));
     let id = Arc::new(Mutex::new(id));
@@ -115,7 +110,7 @@ fn register(mut stream: TcpStream,
             let mut message = Message::new().unwrap();
             let server_reply = ServerReply::Error("This username already exists.".to_string());
             let content = server_reply.to_ron().unwrap().to_buff().unwrap();
-            let author = User::new(SERVER_ID, SERVER_NAME.to_string(), "None".to_string());
+            let author = User::new(SERVER_ID, SERVER_USERNAME.to_string(), "None".to_string());
             let metadata = MetaData::new(&content, MessageKind::SeverReply,
                                                   author, UNKNOWN_USER_ID, vec![UNKNOWN_USER_ID.to_string()],
                                          None).unwrap();
@@ -169,7 +164,7 @@ fn login(mut stream: TcpStream,
                 let mut message = Message::new().unwrap();
                 let server_reply = ServerReply::User(user.clone());
                 let content = server_reply.to_ron().unwrap().to_buff().unwrap();
-                let author = User::new(SERVER_ID, SERVER_NAME.to_string(), "None".to_string());
+                let author = User::new(SERVER_ID, SERVER_USERNAME.to_string(), "None".to_string());
                 let metadata = MetaData::new(&content, MessageKind::SeverReply,
                                                     author, UNKNOWN_USER_ID, vec![UNKNOWN_USER_ID.to_string()],
                                             None).unwrap();
@@ -188,7 +183,7 @@ fn login(mut stream: TcpStream,
             let mut message = Message::new().unwrap();
             let server_reply = ServerReply::Error("This username does not exists.".to_string());
             let content = server_reply.to_ron().unwrap().to_buff().unwrap();
-            let author = User::new(SERVER_ID, SERVER_NAME.to_string(), "None".to_string());
+            let author = User::new(SERVER_ID, SERVER_USERNAME.to_string(), "None".to_string());
             let metadata = MetaData::new(&content, MessageKind::SeverReply,
                                                   author, UNKNOWN_USER_ID, vec![UNKNOWN_USER_ID.to_string()],
                                          None).unwrap();

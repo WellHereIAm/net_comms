@@ -2,23 +2,29 @@ use backtrace::Backtrace;
 
 use crate::error::NetCommsErrorKind;
 
-/// Error struct for this library.
+/// Used as an [Error type](std::error::Error) throughout this library.
+///
+/// # Fields
+/// 
+/// `kind` -- [kind](NetCommsErrorKind) of error.
+///
+/// `message` -- optional additional information about the error.
+///
+/// `backtrace` -- stack backtrace of this error.
 // #[derive(Debug)]
 pub struct NetCommsError {
-    pub kind: NetCommsErrorKind,
-    pub message: Option<String>,
-    pub backtrace: Backtrace,
+    kind: NetCommsErrorKind,
+    message: Option<String>,
+    backtrace: Backtrace,
 }
 
 impl std::fmt::Debug for NetCommsError {
-
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Self::output(&self, f)        
     }    
 }
 
 impl std::fmt::Display for NetCommsError {
-
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Self::output(&self, f)        
     }    
@@ -28,6 +34,32 @@ impl std::error::Error for NetCommsError {}
 
 impl NetCommsError {
 
+    /// Method used to construct a new [NetCommsError].
+    ///
+    /// Also creates a backtrace.
+    ///
+    /// # Arguments
+    /// `kind` -- [kind](NetCommsErrorKind) of error.
+    ///
+    /// `message` -- optional additional information about the error.
+    ///
+    /// # Examples
+    /// 
+    /// ```
+    /// use std::fs::File;
+    ///
+    /// match File::open("does_not_exist.rs") {
+    ///     Ok(file) => {
+    ///     // Do something with the file.
+    ///     } 
+    ///     Err(e) => {
+    ///         return NetCommsError::new(
+    ///                    NetCommsErrorKind::OpeningFileFailed,
+    ///                    Some("Failed to open a file.")
+    ///                )
+    ///     }   
+    /// }
+    /// ```
     pub fn new(kind: NetCommsErrorKind, message: Option<String>) -> Self {
         
         let backtrace = Backtrace::new(); 
@@ -39,18 +71,19 @@ impl NetCommsError {
         }
     }
 
+    /// Method used to format the output of the error.
     fn output(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 
         match self.kind {
-            NetCommsErrorKind::WrongCommand => {
+            NetCommsErrorKind::UnknownCommand => {
                 match &self.message {
                     Some(message) => write!(f, "
                     \n
-                    NetCommsError(Wrong Command):\n
+                    NetCommsError(Unknown Command):\n
                     {}\n
                     source:\n
                     {:?}", message, self.backtrace),
-                    None => write!(f, " Wrong Command"),
+                    None => write!(f, " Unknown Command"),
                 }
             },
             NetCommsErrorKind::InvalidCommand => {
@@ -96,15 +129,15 @@ impl NetCommsError {
                     None => write!(f, " Deserializing Failed"),
                 }
             },
-            NetCommsErrorKind::InvalidBufferLength => {
+            NetCommsErrorKind::InvalidBufferSize => {
                 match &self.message {
                     Some(message) => write!(f, "
                     \n
-                    NetCommsError(Invalid Buffer Length):\n
+                    NetCommsError(Invalid Buffer Size):\n
                     {}\n
                     source:\n
                     {:?}", message, self.backtrace),
-                    None => write!(f, " Invalid Buffer Length"),
+                    None => write!(f, " Invalid Buffer Size"),
                 }
             },
             NetCommsErrorKind::WritingToStreamFailed => {
@@ -187,27 +220,3 @@ impl NetCommsError {
         }
     }    
 }
-
-/// Struct to satisfy generics for Errors from this library.
-#[derive(Debug)]
-pub struct LibraryError;
-
-impl std::fmt::Display for LibraryError {
-
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Library Error")
-    }
-}
-impl std::error::Error for LibraryError {}
-
-#[derive(Debug)]
-pub struct OtherError;
-
-impl std::fmt::Display for OtherError {
-
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Other Error")
-    }
-}
-impl std::error::Error for OtherError {}
-

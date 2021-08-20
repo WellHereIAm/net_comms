@@ -1,14 +1,19 @@
-//! Library for project of network communication using TCP protocol to send text messages and files.
-//! Also implements convenient wrappers  of ToBuffer and FromBuffer for some types used in this library.
+//! Framework that eases network communication using TCP protocol.
+//! 
+//! This is only a library which declared ways how are data structured inside the buffer containing sent or received data.
+//! This framework is build on top of [std::net].
 
 
-/// Module containing FromBuffer and ToBuffer traits.
+/// Module containing [FromBuffer] and [ToBuffer] traits.
+///
+/// Those traits are used throughout this library as they provide necessary functionality for given type to convert it to or from buffer,
+/// which inside this library is always [Vec<u8>](Vec).
 pub mod buffer;
-/// Module used to handle user input.
-// This module will be probably completely refactored. Does not have documentation.
+
+/// Module used to get and process user input through commands.
 pub mod command;
-/// Will be used for custom errors in the library.
-// USE THIS FOR ALL CUSTOM ERRORS IN THE LIBRARY.
+
+/// [Error type](std::error::Error) for this library.
 pub mod error;
 /// Module used to handle Message.
 pub mod message;
@@ -20,7 +25,8 @@ pub mod request;
 /// Module used to handle user.
 // This module will be probably completely refactored. Does not have documentation.
 pub mod user;
-/// Shared constant and static variables for both server and client.
+
+/// Shared constant and static variables used throughout this library.
 pub mod config;
 
 /// Module to simplify development, so I can use use library::prelude::*, most likely will be deleted later.
@@ -40,9 +46,8 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use buffer::{ToBuffer, FromBuffer};
 use crate::error::{NetCommsError, NetCommsErrorKind};
 
-/// Wrappers of ToBuffer and FromBuffer around some types that are used inside this library.
+/// * Convenient wrappers of [ToBuffer] and [FromBuffer] for some types used in this library.
 impl ToBuffer for usize {
-
     fn to_buff(self) -> Result<Vec<u8>, NetCommsError> {
         
         Ok(self.to_be_bytes().to_vec())
@@ -56,7 +61,7 @@ impl FromBuffer for usize {
         // Check if buffer has valid length(at least 8).
         if None == buff.get(7) {
             return Err(NetCommsError::new(
-                NetCommsErrorKind::InvalidBufferLength,
+                NetCommsErrorKind::InvalidBufferSize,
                 Some("Implementation from_buff for usize requires buffer of length of at least 8 bytes.".to_string())))
         }
 
@@ -101,7 +106,7 @@ impl FromBuffer for DateTime<Utc> {
         // Check if buffer has valid length(at least 8).
         if None == buff.get(7) {
             return Err(NetCommsError::new(
-                NetCommsErrorKind::InvalidBufferLength,
+                NetCommsErrorKind::InvalidBufferSize,
                 Some("Implementation from_buff for DateTime<Utc> requires buffer of length of at least 8 bytes.".to_string())))
         }
         let naive_datetime = NaiveDateTime::from_timestamp(usize::from_buff(buff)? as i64, 0);

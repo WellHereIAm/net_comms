@@ -2,9 +2,6 @@ use serde::{Serialize, Deserialize};
 
 use crate::buffer::{ToBuffer, FromBuffer};
 use crate::error::{NetCommsError, NetCommsErrorKind};
-use crate::prelude::{Request, UserUnchecked};
-
-use super::ServerReply;
 
 /// Holds a kind of every Message to be sent or received.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -41,7 +38,7 @@ impl FromBuffer for MessageKind {
         // Check if buffer has valid length(at least 2, anything beyond that is discarded.).
         if None == buff.get(1) {
             return Err(NetCommsError::new(
-                NetCommsErrorKind::InvalidBufferLength,
+                NetCommsErrorKind::InvalidBufferSize,
                 Some("Implementation from_buff for MessageKind requires buffer of length of at least 2 bytes.".to_string())))
         }
 

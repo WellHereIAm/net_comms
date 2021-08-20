@@ -12,7 +12,7 @@ use crate::error::{NetCommsError, NetCommsErrorKind};
 use crate::command::Command;
 use crate::message::MessageKind;
 use crate::packet::{MetaData, PacketKind, Packet};
-use crate::config::{MAX_PACKET_CONTENT_SIZE, MAX_PACKET_SIZE, SERVER_ID, SERVER_NAME};
+use crate::config::{MAX_PACKET_CONTENT_SIZE, MAX_PACKET_SIZE, SERVER_ID, SERVER_USERNAME};
 use crate::prelude::{Request, User, UserUnchecked};
 
 
@@ -57,7 +57,7 @@ impl Message {
             }
             _ => {
                 return Err(NetCommsError::new(
-                    NetCommsErrorKind::WrongCommand,
+                    NetCommsErrorKind::UnknownCommand,
                     Some("Message::from_command() failed to create a message from given command.".to_string())));
             }
         }
@@ -93,7 +93,7 @@ impl Message {
         let content = request.to_ron()?.to_buff()?;
 
         let message_kind = MessageKind::Request;
-        let recipients = vec![SERVER_NAME.to_string().clone()];
+        let recipients = vec![SERVER_USERNAME.to_string().clone()];
         let file_name = None;
 
         let metadata = MetaData::new(&content, message_kind, author, SERVER_ID, recipients, file_name)?;
@@ -118,7 +118,7 @@ impl Message {
         let content = request.to_ron()?.to_buff()?;
 
         let message_kind = MessageKind::Request;
-        let recipients = vec![SERVER_NAME.to_string().clone()];
+        let recipients = vec![SERVER_USERNAME.to_string().clone()];
         let file_name = None;
 
         let metadata = MetaData::new(&content, message_kind, author, SERVER_ID, recipients, file_name)?;

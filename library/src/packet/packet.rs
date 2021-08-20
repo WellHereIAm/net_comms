@@ -33,7 +33,7 @@ impl FromBuffer for Packet {
         // Check if buffer has valid length(at least 10 for kinds without any content).
         if let None = buff.get(PACKET_DESCRIPTION_SIZE - 1) {
             return Err(NetCommsError::new(
-                NetCommsErrorKind::InvalidBufferLength,
+                NetCommsErrorKind::InvalidBufferSize,
                 Some("Implementation from_buff for Packet requires buffer of length of at least 10 bytes.".to_string())));
         }
 
