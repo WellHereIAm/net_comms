@@ -1,13 +1,14 @@
 use crate::message::MessageKind;
+use crate::prelude::User;
 use crate::user::UserUnchecked;
 
 #[derive(Debug)]
 pub enum Command {
-    Register(UserUnchecked),
-    Login(UserUnchecked),
-    Yes,
-    No,
-    Send(MessageKind, usize, Vec<String>, Vec<u8>, Option<String>),    // Send commands have also info about message kind, recipients and content
+    Register(UserUnchecked, User),
+    Login(UserUnchecked, User),
+    Yes(User),
+    No(User),
+    Send(MessageKind, User, Vec<String>, Vec<u8>, Option<String>),    // Send commands have also info about message kind, recipients and content
     Unknown
 }
 

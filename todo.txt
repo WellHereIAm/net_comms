@@ -1,4 +1,3 @@
-Start working on prototypes of client and server
-    Multi-threading is first.
-Rename methods as_, to_, into_ to use proper naming conventions.
-Switch error handling to one in error_rework. Seems like a better design for me, but can wait as current design works.
+Should one more User-like struct that will be generally used, User should be stored on server only and used to create usable User-like
+    that will hold less information, like no password etc, just what´s needed.
+Change from usize to u32 or u64.

@@ -1,10 +1,11 @@
+use std::collections::binary_heap::Iter;
 use std::path::Path;
 
 use utils::input;
 
 use crate::buffer::ToBuffer;
 use crate::command::Command;
-use crate::prelude::NetCommsError;
+use crate::prelude::{NetCommsError, NetCommsErrorKind};
 use crate::user::{User, UserUnchecked};
 use crate::message::MessageKind;
 
@@ -12,12 +13,14 @@ use crate::message::MessageKind;
 /// CommandRaw holds a vector of strings, parts of inputted command.
 #[derive(Debug)]
 pub struct CommandRaw{
-    pub vec: Vec<String>,
+    pub vec: Vec<String>, // I would like to change this to iterator in the future.
 }
 
 impl CommandRaw {
 
-    /// Gets an input from the user and splits it on every whitespace.
+    /**
+    Gets an input from the user and splits it on every whitespace, but whitespaces are included in the outputted vector.
+    */
     pub fn get<T>(msg: Option<T>) -> Self
     where 
         T: std::fmt::Display {
@@ -38,8 +41,6 @@ impl CommandRaw {
                 CommandRaw{vec: cmd}
             },
         };
-
-        dbg!(&cmd);
         cmd
     }
 
@@ -53,19 +54,18 @@ impl CommandRaw {
                 let cmd = cmd.replace(" ", "");
                 match cmd.as_str() {
                     "register" => {
-                        // Later solve situations where check returns an Err value.
-                        let user = CommandRaw::check_register(self).unwrap();
-                        return Ok(Command::Register(user))
+                        let user_unchecked = CommandRaw::check_register(self)?;
+                        return Ok(Command::Register(user_unchecked, user.clone()))
                     },
                     "login" => {
                         // Later solve situations where check returns an Err value.
-                        let user = CommandRaw::check_login(self).unwrap();
-                        return Ok(Command::Login(user))
+                        let user_unchecked = CommandRaw::check_login(self).unwrap();
+                        return Ok(Command::Login(user_unchecked, user.clone()))
                     },
                     "y" => {
                         // Finish check function
                         match CommandRaw::check_yes(self) {
-                            Ok(_) => return Ok(Command::Yes),
+                            Ok(_) => return Ok(Command::Yes(user.clone())),
                             Err(_) => todo!(),
                             
                         };
@@ -73,14 +73,14 @@ impl CommandRaw {
                     "n" => {
                         // Finish check function
                         match CommandRaw::check_no(self) {
-                            Ok(_) => return Ok(Command::No),
+                            Ok(_) => return Ok(Command::No(user.clone())),
                             Err(_) => todo!(),
                             
                         };
                     },
                     "send" => {
-                        let msg = CommandRaw::check_send(self, &user);
-                        return Ok(msg.unwrap())
+                        let send_cmd = CommandRaw::check_send(self, &user)?;
+                        return Ok(send_cmd)
                     },
                     _ => {
                         // Maybe throw some error?
@@ -94,43 +94,84 @@ impl CommandRaw {
     }
 
     fn check_register(cmd: CommandRaw) -> Result<UserUnchecked, NetCommsError> {
-        // Later will perform logic to check if inputted command is a valid register command.
+
+        let cmd_vec: Vec<String> = cmd.vec
+                                      .iter()
+                                      // Removes invalid characters.
+                                      .map(|x| Self::remove_invalid(x.to_owned())) 
+                                      // Filters every element that is only empty space, even though those should not exist after last map,
+                                      // and first 'register' command.
+                                      .filter(|x| x.as_str() != " " && x.as_str() != "register") 
+                                      // Transforms every element to owned String. But now it looks obsolete, so does part of above.
+                                      .map(|x| String::from(x))
+                                      .collect();
+
+        if cmd_vec.len() < 3 {
+            return Err(NetCommsError::new(
+                NetCommsErrorKind::InvalidCommand, 
+                Some("Command register does not have all its parts.".to_string())));
+        }
+
+        let username = cmd_vec[0].clone();
+        let password: String;
+        if cmd_vec[1] == cmd_vec[2] {
+            password = cmd_vec[1].clone();
+        } else {
+            return Err(NetCommsError::new(
+                NetCommsErrorKind::WrongCommand,
+                Some("Passwords do not match.".to_string())
+            ));
+        }
+
         Ok(UserUnchecked {
-            username: cmd.vec[1].clone(),
-            password: cmd.vec[2].clone(),
+            username,
+            password,
         })
     }
 
     fn check_login(cmd: CommandRaw) -> Result<UserUnchecked, NetCommsError> {
-        // Later will perform logic to check if inputted command is a valid login command.
+
+        let cmd_vec: Vec<String> = cmd.vec
+                                      .iter()
+                                      .map(|x| Self::remove_invalid(x.to_owned()))
+                                      .filter(|x| x.as_str() != " " && x.as_str() != "login")
+                                      .map(|x| String::from(x))
+                                      .collect();
+
+        if cmd_vec.len() < 2 {
+            return Err(NetCommsError::new(
+                NetCommsErrorKind::InvalidCommand, 
+                Some("Command login does not have all its parts.".to_string())));
+        }
+
+        let username = cmd_vec[0].clone();
+        let password = cmd_vec[1].clone();
+
         Ok(UserUnchecked {
-            username: cmd.vec[1].clone(),
-            password: cmd.vec[2].clone(),
+            username,
+            password,
         })
     }
 
     fn check_yes(_cmd: CommandRaw) -> Result<Command, NetCommsError> {
+        todo!()
         // Later will perform logic to check if inputted command is a valid yes command.
-        Ok(Command::Yes)
+        // Ok(Command::Yes)
     }
 
     fn check_no(_cmd: CommandRaw) -> Result<Command, NetCommsError> {
+        todo!()
         // Later will perform logic to check if inputted command is a valid no command.
-        Ok(Command::No)
+        // Ok(Command::No)
     }
 
     fn check_send(cmd: CommandRaw, user: &User) -> Result<Command, NetCommsError> {
 
         let mut cmd_iter = cmd.vec.iter();
         
-        // Used to skip send part, so it´s not added as recipient. Later will use 'if let'
-        match cmd_iter.next() {
-            Some(v) => {
-                dbg!(v);
-            },
-            None => {
-                // Return an error.
-            }
+        // Used to skip send part, so it´s not added as recipient.
+        if let None = cmd_iter.next() {
+            // Return an Error.
         }
 
         // Get all recipients.
@@ -140,9 +181,6 @@ impl CommandRaw {
         loop {
             match cmd_iter.next() {
                 Some(part) => {
-
-                    dbg!(&part);
-
                     if part.as_str() == " " {
                         continue;
                     }
@@ -206,9 +244,6 @@ impl CommandRaw {
 
         let cmd_content: String = cmd_iter.map(|string| String::from(string)).collect();
 
-        dbg!(&recipients);
-        dbg!(&cmd_content);
-
         if cmd_content.is_empty()  {
             // Return an error.
         }
@@ -236,11 +271,11 @@ impl CommandRaw {
             content = cmd_content.to_buff()?;
         }
 
-        let author_id = user.id();
+        let author = user.clone();
 
         Ok(Command::Send(
             kind,
-            author_id,
+            author,
             recipients,
             content,
             file_name,
@@ -249,9 +284,9 @@ impl CommandRaw {
 
     /// Removes all invalid characters.
     // Maybe should return 'Result' to signalize if the returned String is empty.
-    fn remove_invalid(recipient: String) -> String {
+    fn remove_invalid(string: String) -> String {
         let invalid_symbols = [" ", ",", "(", ")"];
-        let mut recipient = recipient;
+        let mut recipient = string;
 
         for symbol in invalid_symbols {
             recipient = recipient.replace(symbol, "");

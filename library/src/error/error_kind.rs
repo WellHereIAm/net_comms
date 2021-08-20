@@ -1,8 +1,10 @@
+use backtrace::Backtrace;
 
 /// Kinds of NetCommsError that can arise in this library.
 #[derive(Debug)]
 pub enum NetCommsErrorKind {
     WrongCommand,   
+    InvalidCommand,
     InvalidPacketKind, 
     SerializingFailed,
     DeserializingFailed,

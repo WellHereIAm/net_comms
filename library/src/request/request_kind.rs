@@ -1,19 +1,22 @@
-use crate::prelude::{UserUnchecked};
+use crate::{packet::MetaData, prelude::{Message, NetCommsError, UserUnchecked}};
 
-#[derive(Debug)]
-pub struct RequestErr {}
+pub enum Request {
+    GetWaitingMessages,
+    Unknown,    
+}
 
-impl std::fmt::Display for RequestErr {
+impl Request {
+    
+    pub fn to_message(&self) -> Result<Message, NetCommsError> {
 
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Some error, implement later.")
+        let mut message = Message::new()?;
+        Ok(message)
     }
 }
 
-impl std::error::Error for RequestErr {}
-
 #[derive(Debug)]
 pub enum RequestKind {
+
     GetId(Box<RequestKind>),
     Register(UserUnchecked),
     Login(UserUnchecked),
@@ -39,16 +42,4 @@ impl std::fmt::Display for RequestKind {
 }
 
 impl RequestKind {
-    // Later actually establish connection with the server.
-    pub fn get_id() -> Result<[u8; 4], RequestErr> {
-
-        return Ok([1, 1, 1, 1]);
-
-        // let socket = format!("{}:{}", ADDR, PORT);
-        
-        // let stream = match TcpStream::connect(socket) {
-        //     Ok(stream) => stream,
-        //     Err(_) => todo!(),
-        // };
-    }
 }

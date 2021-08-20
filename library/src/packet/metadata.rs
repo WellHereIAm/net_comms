@@ -8,19 +8,26 @@ use ron::de;
 use crate::buffer::{ToBuffer, FromBuffer};
 use crate::message::MessageKind;
 use crate::error::{NetCommsError, NetCommsErrorKind};
+use crate::prelude::{Message, User};
 
 
 /// This struct holds metadata of each message to be sent or received.
-// Can grow in future.
+/// Can grow in future.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetaData {
     message_kind: MessageKind,
-    message_length: usize,  // Length of message in number of packets.
-    datetime: Vec<u8>,  // Encoded chrono::Datetime<Utc> to Vec<u8> to ease serde serializing and deserializing.
-    author_id: usize,
-    recipient_id: usize, // In future maybe get rid of this field as now it´s just adding nothing.
+    /// Length of message in number of packets.
+    message_length: usize,  
+    /// Encoded chrono::Datetime<Utc> to Vec<u8> to ease serde serializing and deserializing.
+    datetime: Vec<u8>,  
+    /// If created by server, author_id is SERVER_ID, so id of the author will not be sent to recipient.
+    author_id: usize,   
+    author_name: String,
+    /// If created by client, recipient id is SERVER_ID, not ids of recipients.
+    recipient_id: usize, 
     recipients: Vec<String>,
-    file_name: Option<String>,  // If Some, String holds a file name and extension.
+    /// If Some, String holds a file name and file extension.
+    file_name: Option<String>,  
 }
 
 impl ToBuffer for MetaData {
@@ -36,6 +43,7 @@ impl FromBuffer for MetaData {
 
     /// Wrapper around MetaData::from_ron(), which takes String to return MetaData.
     /// Takes an ownership of buff and returns MetaData.
+    /// This implementation does not check if the buffer has correct length as it can vary.
     fn from_buff(buff: Vec<u8>) -> Result<MetaData, NetCommsError> {
         MetaData::from_ron(&String::from_buff(buff)?)
     }
@@ -43,35 +51,48 @@ impl FromBuffer for MetaData {
 
 impl MetaData {
     
-    /// Creates a new MetaData from given arguments.
-    pub fn new(message_kind: MessageKind, message_length: usize,
-               author_id: usize,
-               recipient_id: usize, recipients: Vec<String>,
-               file_name: Option<String>) ->  Result<MetaData, NetCommsError> {
+    /// Creates new MetaData from given data.
+    pub fn new(content: &Vec<u8>,
+           message_kind: MessageKind, author: User,
+           recipient_id: usize, recipients: Vec<String>,
+           file_name: Option<String>) -> Result<MetaData, NetCommsError> {
 
-        let datetime = Self::datetime().to_buff()?;
-        
-        Ok(MetaData {
+        // Temporary metadata, to get length of metadata in number of packets.                  
+        let temp_metadata = Self {
             message_kind,
-            message_length,
-            datetime,
-            author_id,
+            message_length: 0,
+            datetime: Self::current_datetime().to_buff()?,
+            author_id: author.id(),
+            author_name: author.username(),
             recipient_id,
             recipients,
             file_name,
-        })
-    }
+        };
+
+        let temp_metadata_buffer = temp_metadata.to_buff()?;    
+        let n_of_metadata_packets = Message::number_of_packets(&temp_metadata_buffer);        
+        let n_of_content_packets = Message::number_of_packets(content);
+
+        // Adds number of MetaData packets to number of Content packets to one End packet.
+        let message_length = n_of_metadata_packets + n_of_content_packets + 1; 
+
+        let mut metadata = MetaData::from_buff(temp_metadata_buffer)?;
+        metadata.set_message_length(message_length);
+
+        Ok(metadata)
+}
 
     /// Creates a new empty MetaData. Datetime inside is correct.
     pub fn new_empty() -> Result<MetaData, NetCommsError> {
 
-        let datetime = Self::datetime().to_buff()?;
+        let datetime = Self::current_datetime().to_buff()?;
 
         Ok(MetaData {
             message_kind: MessageKind::Empty,
             message_length: 0,
             datetime,
             author_id: 0,
+            author_name: "".to_string(),
             recipient_id: 0,
             recipients: vec![],
             file_name: None,
@@ -127,19 +148,38 @@ impl MetaData {
         self.message_kind.clone()
     }
 
-    /// Returns file_name if it exists, otherwise None.
-    pub fn file_name(&self) -> Option<String> {
-        self.file_name.clone()
-    }
-
     /// Returns message_length as number of packet to be send or received.
     pub fn message_length(&self) -> usize {
         self.message_length 
     }
 
-    /// Sets file_name to MetaData.
-    pub fn set_file_name(&mut self, name: Option<String>) {
-        self.file_name = name;
+    pub fn datetime(&self) -> Result<DateTime<Utc>, NetCommsError> {
+        Ok(DateTime::from_buff(self.datetime.clone())?)
+    }
+
+    /// Returns an author username.
+    pub fn author_name(&self) -> String {
+        self.author_name.clone()
+    }
+
+    /// Returns an author id.
+    pub fn author_id(&self) -> usize {
+        self.author_id.clone()
+    }
+
+    /// Return a recipient id, if Message was sent by client, this returns only 'SERVER_ID'.
+    pub fn recipient_id(&mut self) -> usize {
+        self.recipient_id
+    }
+
+    /// Returns recipients.
+    pub fn recipients(&self) -> Vec<String> {
+        self.recipients.clone()
+    }
+
+    /// Returns file_name if it exists, otherwise None.
+    pub fn file_name(&self) -> Option<String> {
+        self.file_name.clone()
     }
 
     /// Sets message_length to MetaData.
@@ -147,8 +187,28 @@ impl MetaData {
         self.message_length = length;
     }    
 
+    /// Sets message author id.
+    pub fn set_author_id(&mut self, id: usize) {
+        self.author_id = id;
+    }
+
+    /// Sets recipient id.
+    pub fn set_recipient_id(&mut self, recipient_id: usize) {
+        self.recipient_id = recipient_id;
+    }
+
+    /// Sets recipients.
+    pub fn set_recipients(&mut self, recipients: Vec<String>) {
+        self.recipients = recipients;
+    }
+
+    /// Sets file_name to MetaData.
+    pub fn set_file_name(&mut self, name: Option<String>) {
+        self.file_name = name;
+    }
+
     /// Internal method used in MetaData::new() and MetaData::new_empty() to get current datetime.
-    fn datetime() -> DateTime<Utc> {
+    fn current_datetime() -> DateTime<Utc> {
     
         let now = SystemTime::now()
                             .duration_since(SystemTime::UNIX_EPOCH)

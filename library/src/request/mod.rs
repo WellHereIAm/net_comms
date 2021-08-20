@@ -1,3 +1,3 @@
-pub mod request_kind;
+pub mod request;
 
-pub use request_kind::{RequestKind, RequestErr};
+pub use request::{Request};

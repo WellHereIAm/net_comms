@@ -53,6 +53,17 @@ impl NetCommsError {
                     None => write!(f, " Wrong Command"),
                 }
             },
+            NetCommsErrorKind::InvalidCommand => {
+                match &self.message {
+                    Some(message) => write!(f, "
+                    \n
+                    NetCommsError(Invalid Command):\n
+                    {}\n
+                    source:\n
+                    {:?}", message, self.backtrace),
+                    None => write!(f, " Invalid Command"),
+                }
+            }
             NetCommsErrorKind::InvalidPacketKind => {
                 match &self.message {
                     Some(message) => write!(f, "

@@ -2,6 +2,9 @@ use serde::{Serialize, Deserialize};
 
 use crate::buffer::{ToBuffer, FromBuffer};
 use crate::error::{NetCommsError, NetCommsErrorKind};
+use crate::prelude::{Request, UserUnchecked};
+
+use super::ServerReply;
 
 /// Holds a kind of every Message to be sent or received.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10,6 +13,7 @@ pub enum MessageKind {
     Request,
     Text,
     File,
+    SeverReply,
     Unknown,
 }
 
@@ -23,6 +27,7 @@ impl ToBuffer for MessageKind {
             MessageKind::Request => [1_u8, 0_u8],
             MessageKind::Text => [2_u8, 0_u8],
             MessageKind::File => [3_u8, 0_u8],
+            MessageKind::SeverReply => [4_u8, 0_u8],
             MessageKind::Unknown => [255_u8, 0_u8],
         };
         Ok(msg_kind.to_vec())
@@ -45,6 +50,7 @@ impl FromBuffer for MessageKind {
             1 => MessageKind::Request,
             2 => MessageKind::Text,
             3 => MessageKind::File,
+            4 => MessageKind::SeverReply,
             _ => MessageKind::Unknown,            
         }; 
         

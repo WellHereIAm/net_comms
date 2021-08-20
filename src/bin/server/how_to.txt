@@ -1,0 +1,9 @@
+First try
+
+Threads:
+    Main thread will be used only for commands and their processing to communicate with the server.
+    Main thread will spawn a thread to handle database of users, server will access data in this thread via messages.
+    Main thread will spawn a thread to handle incoming connections, this thread will also spawn new thread for each connection until
+    some threshold is filled, than will wait until thread is available.
+
+If this works, rest will be interesting, but this is main goal.
