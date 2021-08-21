@@ -32,6 +32,8 @@ pub enum NetCommsErrorKind {
 
     /// Used if [Message](crate::message::Message) [MetaData](crate::packet::MetaData) are not complete.
     IncompleteMetaData,
+    /// Used if [Message](crate::message::Message) fails to recognize a message `kind` and sets it to [MessageKind::Unknown](crate::message::MessageKind::Unknown).
+    UnknownMessageKind,
 
     /// Wrapper around every error not originating from this library, used if there is a need to use
     /// produced error directly.

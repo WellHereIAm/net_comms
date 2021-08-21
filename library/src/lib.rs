@@ -16,7 +16,7 @@ pub mod command;
 /// [Error type](std::error::Error) for this library.
 pub mod error;
 
-/// Module containing [Message](message::Message) and other struct that are used inside it.
+/// Module containing [Message](message::Message) and other struct that are used inside it or with it.
 pub mod message;
 
 /// Module used to handle packets.

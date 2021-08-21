@@ -16,7 +16,6 @@ pub enum PacketKind {
     MetaData(usize, Vec<u8>),   // Here second data hold MetaData struct encoded in RON format.
     MetaDataEnd(usize, Vec<u8>), // Same as MetaData, but marks the end of MetaData packets.
     Content(usize, Vec<u8>),    // Actual content of second data depends on message kind which is described in MetaData.
-    Request,
     End,    // PacketKind::End signalized end of Message. // MOST LIKELY WILL ADD SOME DATA INSIDE IN FUTURE.
     Unknown,
 }
@@ -43,8 +42,7 @@ impl ToBuffer for PacketKind {
                 buff.extend([2_u8, 0_u8]);
                 buff.extend(content);
             },
-            Request => buff.extend([3_u8, 0_u8]),
-            End => buff.extend([4_u8, 0_u8]),
+            End => buff.extend([3_u8, 0_u8]),
             Unknown => buff.extend([255_u8, 0_u8]),
         }
 
@@ -77,11 +75,13 @@ impl FromBuffer for PacketKind {
             1 => match kind[1] {
                     0 => PacketKind::MetaData(content_size, contents.to_vec()),
                     1 => PacketKind::MetaDataEnd(content_size, contents.to_vec()),
-                    _ => PacketKind::Unknown,   // Maybe change this to return Err?
+                    _ => {
+                        println!("from_buff_unknown");
+                        PacketKind::Unknown   // Maybe change this to return Err?
+                    }
             }
             2 => PacketKind::Content(content_size, contents.to_vec()),
-            3 => PacketKind::Request,
-            4 => PacketKind::End,
+            3 => PacketKind::End,
             _ => PacketKind::Unknown,            
         };
 
@@ -128,7 +128,6 @@ impl PacketKind {
             MetaData(size, _) => *size,
             MetaDataEnd(size, _) => *size,
             Content(size, _) => *size,
-            Request => 0 as usize,
             End => 0 as usize,
             Unknown => 0 as usize,
         };
@@ -144,7 +143,6 @@ impl PacketKind {
             MetaData(..) => MetaData(0, Vec::new()),
             MetaDataEnd(..) => MetaDataEnd(0, Vec::new()),
             Content(..) => Content(0, Vec::new()),
-            Request => Request,
             End => End,
             Unknown => Unknown,
         };

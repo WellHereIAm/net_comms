@@ -5,13 +5,21 @@ use serde::{Serialize, Deserialize};
 use ron::ser;
 use ron::de;
 
+/// Enum of all possible replies from server to client.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ServerReply {
-    Error(String), // Message
+    /// Used when returning an error, [String] inside holds an error message.
+    Error(String), // Later this string should be changed to use some kind of error enum, so client can recover from it.
+    /// Used when there was a successful [Request::Register](crate::request::Request::Register) or [Request::Login](crate::request::Request::Login).
     User(User),
 }
 impl ServerReply {
 
+    /// Transform self to [RON](https://docs.rs/crate/ron/0.6.4) format
+    ///
+    /// # Errors 
+    /// 
+    /// * Will return an [NetCommsError] with kind [NetCommsErrorKind::SerializingFailed] if [serde] fails to serialize [ServerReply].
     pub fn to_ron(&self) -> Result<String, NetCommsError>{
         match ser::to_string(&self) {
             Ok(serialized) => Ok(serialized),
@@ -21,7 +29,11 @@ impl ServerReply {
         }
     }
 
-    /// Creates MetaData from RON if passed string is valid.
+    /// Creates MetaData from [RON](https://docs.rs/crate/ron/0.6.4) if passed string is valid [ServerReply].
+    ///
+    /// # Errors 
+    /// 
+    /// * Will return an [NetCommsError] with kind [NetCommsErrorKind::DeserializingFailed] if [serde] fails to deserialize [ServerReply].
     pub fn from_ron(ron: &String) -> Result<Self, NetCommsError> {
         match de::from_str(ron) {
             Ok(metadata) => Ok(metadata),

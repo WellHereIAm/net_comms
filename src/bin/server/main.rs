@@ -89,7 +89,7 @@ fn handle_client(mut stream: TcpStream,
                     _ => {}
                 }
             },
-            Err(_) => todo!(),
+            Err(e) => println!("{}", e),
         }
 
     }).unwrap();

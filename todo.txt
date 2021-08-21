@@ -2,3 +2,5 @@ Message::receive needs to save files to correct location = not to just a folder 
 Should one more User-like structs that will be generally used, User should be stored on server only and used to create usable User-like
     that will hold less information, like no password etc, just what´s needed.
 Change from usize to u32 or u64.
+Check if automatic Message length in metadata is correct.
+Change ServerReply::Error message to enum with error variants.

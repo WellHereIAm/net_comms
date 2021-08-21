@@ -20,7 +20,7 @@ pub trait FromBuffer {
     ///
     /// * This should return [NetCommsError](crate::error::NetCommsError) with [InvalidBufferSize](crate::error::NetCommsErrorKind::InvalidBufferSize)
     /// as a kind, if the given buffer does does not have proper length to be converted to implementor type.
-    /// * Other cause of error inside this method is failed deserialization of RON to given type, in which case 
+    /// * Other cause of error inside this method is failed deserialization of [RON](https://docs.rs/crate/ron/0.6.4) to given type, in which case 
     /// [NetCommsError](crate::error::NetCommsError) with kind: [DeserializingFailed](crate::error::NetCommsErrorKind::DeserializingFailed) is returned.
     /// * This can also return other [NetCommsError].
     fn from_buff(buff: Vec<u8>) -> Result<Self, NetCommsError>

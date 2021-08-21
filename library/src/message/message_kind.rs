@@ -3,14 +3,22 @@ use serde::{Serialize, Deserialize};
 use crate::buffer::{ToBuffer, FromBuffer};
 use crate::error::{NetCommsError, NetCommsErrorKind};
 
-/// Holds a kind of every Message to be sent or received.
+/// Holds a kind of [Message](super::Message).
+///
+/// When sent it is stored inside [Message](super::Message) `metadata`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MessageKind {
+    /// Empty struct, usually used only while creating new [Message](super::Message) using [Message::new](super::Message::new).
     Empty,
+    /// Request from client.
     Request,
+    /// Text message sent from one user to another.
     Text,
+    /// File message sent from one user to another.
     File,
+    /// Reply from server to client.
     SeverReply,
+    /// Used in case if [Message](super::Message) fails to recognize a [MessageKind].
     Unknown,
 }
 

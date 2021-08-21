@@ -1,9 +1,10 @@
 use crate::message::MessageKind;
 use crate::user::{User, UserUnchecked};
 
-/// Stores command in a way that enables simple sending using RON formaSt and [Message](crate::message::Message) through [TcpStream](std::net::TcpStream).
+/// Stores command in a way that enables simple sending using [RON](https://docs.rs/crate/ron/0.6.4) format
+// and [Message](crate::message::Message) through [TcpStream](std::net::TcpStream).
 /// Is usually constructed by [CommandRaw::process](crate::command::CommandRaw::process).
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Command {
     /// Command containing [UserUnchecked] with username and password that is user attempting to use to register.
     /// [User] is usually a default user.

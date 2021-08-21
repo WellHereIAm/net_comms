@@ -11,7 +11,6 @@ use crate::error::NetCommsErrorKind;
 /// `message` -- optional additional information about the error.
 ///
 /// `backtrace` -- stack backtrace of this error.
-// #[derive(Debug)]
 pub struct NetCommsError {
     kind: NetCommsErrorKind,
     message: Option<String>,
@@ -204,6 +203,17 @@ impl NetCommsError {
                     source:\n
                     {:?}", message, self.backtrace),
                     None => write!(f, " Incomplete MetaData"),
+                }
+            }
+            NetCommsErrorKind::UnknownMessageKind => {
+                match &self.message {
+                    Some(message) => write!(f, "
+                    \n
+                    NetCommsError(Unknown MessageKind):\n
+                    {}\n
+                    source:\n
+                    {:?}", message, self.backtrace),
+                    None => write!(f, " Unknown MessageKind"),
                 }
             }
             NetCommsErrorKind::OtherSource(_) => {

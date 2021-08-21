@@ -45,9 +45,7 @@ fn get_user(user: &User) -> Result<User, NetCommsError> {
     // Get user by login or register. Only register works now.
     let user = user.clone();
     let cmd_raw = CommandRaw::get(Some("register <username> <password> <password>\nlogin <username> <password>\n".to_string()));
-    dbg!(&cmd_raw);
     let cmd = cmd_raw.process(&user)?;
-    dbg!(&cmd);
     let request = Message::from_command(cmd)?;
 
     match TcpStream::connect(socket.clone()) {
