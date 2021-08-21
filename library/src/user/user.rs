@@ -2,9 +2,9 @@ use serde::{Serialize, Deserialize};
 use ron::ser;
 use ron::de;
 
-use crate::config::UNKNOWN_USERNAME;
-use crate::config::UNKNOWN_USER_ID;
-use crate::prelude::{NetCommsError, NetCommsErrorKind};
+use crate::error::{NetCommsError, NetCommsErrorKind};
+use crate::config::{UNKNOWN_USER_ID, UNKNOWN_USERNAME};
+
 
 /// Holds data about user.
 ///

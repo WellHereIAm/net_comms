@@ -6,9 +6,9 @@ use ron::ser::{self, PrettyConfig};
 use ron::de;
 
 use crate::buffer::{ToBuffer, FromBuffer};
-use crate::message::MessageKind;
 use crate::error::{NetCommsError, NetCommsErrorKind};
-use crate::prelude::{Message, User};
+use crate::message::{Message, MessageKind};
+use crate::user::User;
 
 
 /// This struct holds metadata of each [Message].

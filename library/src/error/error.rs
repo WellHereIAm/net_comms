@@ -2,6 +2,7 @@ use backtrace::Backtrace;
 
 use crate::error::NetCommsErrorKind;
 
+
 /// Used as an [Error type](std::error::Error) throughout this library.
 ///
 /// # Fields

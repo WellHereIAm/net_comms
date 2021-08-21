@@ -3,6 +3,7 @@ use serde::{Serialize, Deserialize};
 use crate::buffer::{ToBuffer, FromBuffer};
 use crate::error::{NetCommsError, NetCommsErrorKind};
 
+
 /// Holds a kind of [Message](super::Message).
 ///
 /// When sent it is stored inside [Message](super::Message) `metadata`.

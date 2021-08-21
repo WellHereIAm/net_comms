@@ -7,12 +7,13 @@ use serde::{Serialize, Deserialize};
 use itertools::Itertools;
 
 use crate::buffer::{ToBuffer, FromBuffer};
-use crate::error::{NetCommsError, NetCommsErrorKind};
 use crate::command::Command;
+use crate::error::{NetCommsError, NetCommsErrorKind};
 use crate::message::MessageKind;
 use crate::packet::{MetaData, PacketKind, Packet};
 use crate::config::{MAX_PACKET_CONTENT_SIZE, MAX_PACKET_SIZE, SERVER_ID, SERVER_USERNAME};
-use crate::prelude::{Request, User, UserUnchecked};
+use crate::request::Request;
+use crate::user::{User, UserUnchecked};
 
 
 /// Container to hold all data about the message.

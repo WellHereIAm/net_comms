@@ -1,9 +1,9 @@
-use crate::prelude::NetCommsError;
-use crate::prelude::NetCommsErrorKind;
-use crate::prelude::User;
 use serde::{Serialize, Deserialize};
 use ron::ser;
 use ron::de;
+
+use crate::error::{NetCommsError, NetCommsErrorKind};
+use crate::user::User;
 
 /// Enum of all possible replies from server to client.
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,8 +1,8 @@
 use serde::{Serialize, Deserialize};
 
-use crate::packet::PacketKind;
 use crate::buffer::{ToBuffer, FromBuffer};
 use crate::error::{NetCommsError, NetCommsErrorKind};
+use crate::packet::PacketKind;
 use crate::config::PACKET_DESCRIPTION_SIZE;
 
 

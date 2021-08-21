@@ -5,8 +5,9 @@ use utils::input;
 use crate::buffer::ToBuffer;
 use crate::command::Command;
 use crate::error::{NetCommsError, NetCommsErrorKind};
-use crate::user::{User, UserUnchecked};
 use crate::message::MessageKind;
+use crate::user::{User, UserUnchecked};
+
 
 
 /// Is used to get user input through its [CommandRaw::get]

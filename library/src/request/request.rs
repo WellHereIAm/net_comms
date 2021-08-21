@@ -2,8 +2,8 @@ use serde::{Serialize, Deserialize};
 use ron::ser;
 use ron::de;
 
-use crate::prelude::NetCommsErrorKind;
-use crate::prelude::{NetCommsError, UserUnchecked};
+use crate::error::{NetCommsError, NetCommsErrorKind};
+use crate::user::UserUnchecked;
 
 
 /// Holds data about requests from client to server.
