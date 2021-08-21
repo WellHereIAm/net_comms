@@ -7,7 +7,7 @@
 /// Module containing [FromBuffer] and [ToBuffer] traits.
 ///
 /// Those traits are used throughout this library as they provide necessary functionality for given type to convert it to or from buffer,
-/// which inside this library is always [Vec<u8>](Vec).
+/// which inside this library is always [Vec] of [u8].
 pub mod buffer;
 
 /// Module used to get and process user input through commands.
@@ -19,8 +19,9 @@ pub mod error;
 /// Module containing [Message](message::Message) and other struct that are used inside it or with it.
 pub mod message;
 
-/// Module used to handle packets.
+/// Module containing [Packet](packet::Packet) and other struct that are used inside it or with it.
 pub mod packet;
+
 /// Module used to handle request like messages.
 // This module will be probably completely refactored or even deleted. Does not have documentation.
 pub mod request;
@@ -48,7 +49,7 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use buffer::{ToBuffer, FromBuffer};
 use crate::error::{NetCommsError, NetCommsErrorKind};
 
-/// * Convenient wrappers of [ToBuffer] and [FromBuffer] for some types used in this library.
+/// Convenient wrappers of ToBuffer and FromBuffer for some types used in this library.
 impl ToBuffer for usize {
     fn to_buff(self) -> Result<Vec<u8>, NetCommsError> {
         

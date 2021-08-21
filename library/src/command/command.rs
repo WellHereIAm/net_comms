@@ -1,7 +1,7 @@
 use crate::message::MessageKind;
 use crate::user::{User, UserUnchecked};
 
-/// Stores command in a way that enables simple sending using [RON](https://docs.rs/crate/ron/0.6.4) format
+/// Stores command in a way that enables simple sending using [RON](ron) format
 // and [Message](crate::message::Message) through [TcpStream](std::net::TcpStream).
 /// Is usually constructed by [CommandRaw::process](crate::command::CommandRaw::process).
 #[derive(Debug, Clone)]

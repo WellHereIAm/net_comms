@@ -7,6 +7,13 @@ use crate::config::PACKET_DESCRIPTION_SIZE;
 
 
 /// Gives structure to data to be sent or received from stream.
+///
+/// [Packet] is the lowest abstraction above buffer in this library.
+///
+/// # Fields
+///
+/// * `size` -- size of the whole [packet](Packet) in number of bytes.
+/// * `kind` -- kind of [packet](Packet), also hold all other packet data besides its size. 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Packet {
     size: usize,    // Size of whole packet with contents in number of bytes.
@@ -49,8 +56,15 @@ impl FromBuffer for Packet {
 
 impl Packet {
 
-    /// Creates new Packet with given PacketKind.
-    /// Size of packet is derived from PacketKind given.
+    /// Creates a new [Packet].
+    ///
+    /// Size of packet is derived from [`kind`](PacketKind) given.
+    ///
+    /// # Examples
+    /// End packet at the end of the [Message](crate::message::Message) is created like that.
+    /// ```
+    /// let packet = Packet::new(PacketKind::End);
+    /// ```
     pub fn new(kind: PacketKind) -> Self {
 
         // Size is composed of three parts:
@@ -65,7 +79,7 @@ impl Packet {
         }
     }
 
-    /// Creates new empty packet.
+    /// Creates a new empty [Packet].
     pub fn new_empty() -> Self {
 
         Packet {
@@ -79,13 +93,16 @@ impl Packet {
         self.size
     }
 
-    /// Returns only kind of PacketKind, data inside are invalid.
-    /// Wrapper around PacketKind::kind().
+    /// Returns only `kind` of [PacketKind], data inside are invalid.
+    ///
+    /// This is a wrapper around [PacketKind::kind], if valid data are needed use [Packet::kind_owned].
     pub fn kind(&self) -> PacketKind {
         self.kind.kind()
     }
 
-    /// This method takes an ownership of self and returns PacketKind with valid data inside.
+    /// This method takes an ownership of self and returns [PacketKind] with valid data inside.
+    ///
+    /// If valid data inside are not needed and `kind` is only interest, use [Packet::kind].
     pub fn kind_owned(self) -> PacketKind {
         self.kind
     }

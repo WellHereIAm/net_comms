@@ -15,7 +15,7 @@ pub enum ServerReply {
 }
 impl ServerReply {
 
-    /// Transform self to [RON](https://docs.rs/crate/ron/0.6.4) format
+    /// Transform self to [RON](ron) format
     ///
     /// # Errors 
     /// 
@@ -29,7 +29,7 @@ impl ServerReply {
         }
     }
 
-    /// Creates MetaData from [RON](https://docs.rs/crate/ron/0.6.4) if passed string is valid [ServerReply].
+    /// Creates MetaData from [RON](ron) if passed string is valid [ServerReply].
     ///
     /// # Errors 
     /// 

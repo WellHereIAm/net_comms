@@ -15,7 +15,7 @@ pub trait ToBuffer {
     /// ```
     /// # Errors
     ///
-    /// * Usual cause of error inside this method is failed serialization of given type to [RON](https://docs.rs/crate/ron/0.6.4), in which case 
+    /// * Usual cause of error inside this method is failed serialization of given type to [RON](ron), in which case 
     /// [NetCommsError](crate::error::NetCommsError) with kind: [SerializingFailed](crate::error::NetCommsErrorKind::SerializingFailed) is returned.
     /// * This can also return other [NetCommsError].
     fn to_buff(self) -> Result<Vec<u8>, NetCommsError>;
