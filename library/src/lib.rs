@@ -22,11 +22,10 @@ pub mod message;
 /// Module containing [Packet](packet::Packet) and other struct that are used inside it or with it.
 pub mod packet;
 
-/// Module used to handle request like messages.
-// This module will be probably completely refactored or even deleted. Does not have documentation.
+/// Module containing [Request](request::Request), which is used to send requests from client to server.
 pub mod request;
-/// Module used to handle user.
-// This module will be probably completely refactored. Does not have documentation.
+
+/// Module containing structs that are used for user identification.
 pub mod user;
 
 /// Shared constant and static variables used throughout this library.
@@ -49,7 +48,7 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use buffer::{ToBuffer, FromBuffer};
 use crate::error::{NetCommsError, NetCommsErrorKind};
 
-/// Convenient wrappers of ToBuffer and FromBuffer for some types used in this library.
+
 impl ToBuffer for usize {
     fn to_buff(self) -> Result<Vec<u8>, NetCommsError> {
         
@@ -115,7 +114,6 @@ impl FromBuffer for DateTime<Utc> {
         let naive_datetime = NaiveDateTime::from_timestamp(usize::from_buff(buff)? as i64, 0);
 
         Ok(DateTime::from_utc(naive_datetime, Utc))  
-    }   
-    
+    }  
 }
 

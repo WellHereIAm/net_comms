@@ -2,10 +2,17 @@ use serde::{Serialize, Deserialize};
 use ron::ser;
 use ron::de;
 
+use crate::config::UNKNOWN_USERNAME;
 use crate::config::UNKNOWN_USER_ID;
 use crate::prelude::{NetCommsError, NetCommsErrorKind};
 
-/// Struct to hold data about user, most likely will grow in future by a lot.
+/// Holds data about user.
+///
+/// # Fields
+///
+/// * `id` -- assigned by server.
+/// * `username`
+/// * `password`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
     id: usize,
@@ -15,10 +22,11 @@ pub struct User {
 
 impl Default for User {
 
+    /// Creates a default [User] with [UNKNOWN_USER_ID] and [UNKNOWN_USERNAME].
     fn default() -> Self {
         User {
-            id: 1,
-            username: UNKNOWN_USER_ID.to_string(),
+            id: UNKNOWN_USER_ID,
+            username: UNKNOWN_USERNAME.to_string(),
             password: "None".to_string(),
         }
     }
@@ -26,7 +34,7 @@ impl Default for User {
 
 impl User {
 
-    /// Creates new User.    
+    /// Creates a new [User].    
     pub fn new(id: usize, username: String, password: String) -> Self {
         User {
             id,
@@ -35,6 +43,10 @@ impl User {
         }
     }
 
+    /// Returns a [RON](ron) from [User].
+    ///
+    /// # Errors
+    /// * Will return [NetCommsError] with kind [NetCommsErrorKind::SerializingFailed] if it fails to serialize this [User].
     pub fn to_ron(&self) -> Result<String, NetCommsError>{
         match ser::to_string(&self) {
             Ok(serialized) => Ok(serialized),
@@ -44,7 +56,12 @@ impl User {
         }
     }
 
-    /// Creates MetaData from RON if passed string is valid.
+    /// Creates a [User] from [RON](ron).
+    ///
+    /// # Errors
+    ///
+    /// Will return [NetCommsError] with kind [NetCommsErrorKind::DeserializingFailed]
+    /// if it fails to deserialize given string to [User].
     pub fn from_ron(ron: &String) -> Result<Self, NetCommsError> {
         dbg!(&ron);
         match de::from_str(ron) {
@@ -55,20 +72,19 @@ impl User {
         }
     }
     
-    /// Returns users id.
+    /// Returns `users_id`.
     pub fn id(&self) -> usize {
         self.id
     }
 
-    /// Returns users username.
+    /// Returns `username`.
     pub fn username(&self) -> String {
         self.username.clone()
     }
 
-    /// Returns users
+    /// Returns `password`.
     // Not to sure about this one.
     pub fn password(&self) -> String {
         self.password.clone()
     }
-
 }

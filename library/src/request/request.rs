@@ -3,18 +3,31 @@ use ron::ser;
 use ron::de;
 
 use crate::prelude::NetCommsErrorKind;
-use crate::prelude::{Message, NetCommsError, UserUnchecked};
+use crate::prelude::{NetCommsError, UserUnchecked};
 
+
+/// Holds data about requests from client to server.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Request {
+    /// Request to login with [UserUnchecked] inside.
     Login(UserUnchecked),
+
+    /// Request to register with [UserUnchecked] inside.
     Register(UserUnchecked),
+
+    /// Request to get any [messages](crate::message::Message) that were sent to requesting client.
     GetWaitingMessages,
+
+    /// Used if some method fails to recognize the [Request].
     Unknown,    
 }
 
 impl Request {
 
+    /// Returns a [RON](ron) from [Request].
+    ///
+    /// # Errors
+    /// * Will return [NetCommsError] with kind [NetCommsErrorKind::SerializingFailed] if it fails to serialize this [Request].
     pub fn to_ron(&self) -> Result<String, NetCommsError>{
         match ser::to_string(&self) {
             Ok(serialized) => Ok(serialized),
@@ -24,7 +37,12 @@ impl Request {
         }
     }
 
-    /// Creates MetaData from RON if passed string is valid.
+    /// Creates [Request] from [RON](ron).
+    ///
+    /// # Errors
+    ///
+    /// Will return [NetCommsError] with kind [NetCommsErrorKind::DeserializingFailed]
+    /// if it fails to deserialize given string to [Request].
     pub fn from_ron(ron: &String) -> Result<Self, NetCommsError> {
         match de::from_str(ron) {
             Ok(metadata) => Ok(metadata),
@@ -32,11 +50,5 @@ impl Request {
                 NetCommsErrorKind::DeserializingFailed,
                 Some("Deserializing of given RON to Request struct failed.".to_string())))
         }
-    }
-    
-    pub fn to_message(&self) -> Result<Message, NetCommsError> {
-
-        let message = Message::new()?;
-        Ok(message)
     }
 }
