@@ -24,6 +24,10 @@ pub enum NetCommsErrorKind {
     /// Used if an error occurs during reading from [TcpStream](std::net::TcpStream).
     ReadingFromStreamFailed,
 
+    /// Used if an error occurs while trying to create a directory.
+    CreatingDirFailed,
+    /// Used if an error occurs while trying to create a file.
+    CreatingFileFailed,
     /// Used if an error occurs while trying to open a file.
     OpeningFileFailed,
     /// Used if an error occurs while trying to write to a file.

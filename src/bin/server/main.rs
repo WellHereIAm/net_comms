@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::net::{TcpListener, TcpStream};
+use std::path::Path;
 use std::thread;
 use std::sync::{Arc, Mutex};
 
@@ -9,6 +10,8 @@ mod users;
 
 // ERROR HANDLING
 fn main() -> Result<(), NetCommsError> {
+
+    
 
     let socket = format!("{}:{}", ADDR, PORT);
     let listener = TcpListener::bind(socket).unwrap();
@@ -45,7 +48,8 @@ fn handle_client(mut stream: TcpStream,
 
     thread::Builder::new().name("client_thread".to_string()).spawn(|| {
 
-        match Message::receive(&mut stream) {
+        let location = Path::new("D:\\stepa\\Documents\\Rust\\net_comms\\server_logs");
+        match Message::receive(&mut stream, location) {
             Ok(message) => {
                 match message.kind() {
                     MessageKind::Text | MessageKind::File => {
@@ -218,7 +222,10 @@ fn return_waiting_messages(mut stream: TcpStream,
                 metadata.set_recipient_id(author.id());
                 message.set_metadata(metadata);
 
-                message.send(&mut stream).unwrap();
+                match message.metadata().file_name() {
+                    Some(_) => message.send_file(&mut stream).unwrap(),                    
+                    None => message.send(&mut stream).unwrap(),
+                }
             }
         },
         None => {},

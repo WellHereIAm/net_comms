@@ -1,4 +1,6 @@
 
+use std::fmt::format;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -48,10 +50,12 @@ fn get_user(user: &User) -> Result<User, NetCommsError> {
     let cmd = cmd_raw.process(&user)?;
     let request = Message::from_command(cmd)?;
 
+
+    let location = Path::new("D:\\stepa\\Documents\\Rust\\net_comms\\client_logs");
     match TcpStream::connect(socket.clone()) {
         Ok(mut stream) => {
             request.send(&mut stream)?;
-            let msg = Message::receive(&mut stream)?;
+            let msg = Message::receive(&mut stream, location)?;
             match msg.kind() {
                 MessageKind::SeverReply => {
                     let server_reply = ServerReply::from_ron(&String::from_buff(msg.content())?)?;
@@ -84,9 +88,20 @@ fn get_waiting_messages(user: User, socket: String, _mpsc_transmitter: Sender<Me
                 Ok(mut stream) => {
                     message.send(&mut stream).unwrap();
                     loop {
-                        match Message::receive(&mut stream) {
+                        let location = Path::new("D:\\stepa\\Documents\\Rust\\net_comms\\client_logs");
+                        match Message::receive(&mut stream, location) {
                             Ok(message) => {
-                                println!("{}", String::from_buff(message.content()).unwrap())
+                                // Why use multiple statements, when I can use one :D
+                                println!("{author} [{datetime}]: {content}",
+                                    author = message.metadata().author_name(),
+                                    datetime = message.datetime_as_string(),
+                                    content = match message.kind() {
+                                        MessageKind::File => format!("Received a file {name} at {location}",
+                                                                        name = PathBuf::from(message.metadata().file_name().unwrap()).file_name().unwrap().to_string_lossy(),
+                                                                        location = PathBuf::from(message.metadata().file_name().unwrap()).to_string_lossy()
+                                                                    ),
+                                        _ => String::from_buff(message.content()).unwrap()                                                        
+                                    }) 
                             }
                             Err(_) => break,
                         }

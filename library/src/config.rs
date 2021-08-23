@@ -1,5 +1,5 @@
 /// Minimum value is 11, 8 for packet size, 2 for packet kind, and at least 1 for content. 
-pub const MAX_PACKET_SIZE: usize = 100;
+pub const MAX_PACKET_SIZE: usize = 1024;
 
 /// Minimal size that is every packet guaranteed to have, 8 bytes are for its size and two for its kind.
 pub const PACKET_DESCRIPTION_SIZE: usize = 10;

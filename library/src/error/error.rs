@@ -1,4 +1,5 @@
 use backtrace::Backtrace;
+use indoc::indoc;
 
 use crate::error::NetCommsErrorKind;
 
@@ -11,7 +12,7 @@ use crate::error::NetCommsErrorKind;
 ///
 /// `message` -- optional additional information about the error.
 ///
-/// `backtrace` -- stack backtrace of this error.
+/// `backtrace` -- stack backtrace of error, created via [backtrace].
 pub struct NetCommsError {
     kind: NetCommsErrorKind,
     message: Option<String>,
@@ -77,157 +78,269 @@ impl NetCommsError {
         match self.kind {
             NetCommsErrorKind::UnknownCommand => {
                 match &self.message {
-                    Some(message) => write!(f, "
-                    \n
-                    NetCommsError(Unknown Command):\n
-                    {}\n
-                    source:\n
-                    {:?}", message, self.backtrace),
-                    None => write!(f, " Unknown Command"),
+                    Some(message) => write!(f, 
+                        indoc! {
+                        "
+                        \n
+                        NetCommsError(Unknown Command):\n
+                        {}\n
+                        source:\n
+                        {:?}
+                        "
+                        }
+                        , message, self.backtrace),
+                    None => write!(f, "NetCommsError(Unknown Command)"),
                 }
             },
             NetCommsErrorKind::InvalidCommand => {
                 match &self.message {
-                    Some(message) => write!(f, "
-                    \n
-                    NetCommsError(Invalid Command):\n
-                    {}\n
-                    source:\n
-                    {:?}", message, self.backtrace),
-                    None => write!(f, " Invalid Command"),
+                    Some(message) => write!(f, 
+                        indoc! {
+                        "
+                        \n
+                        NetCommsError(Invalid Command):\n
+                        {}\n
+                        source:\n
+                        {:?}
+                        "
+                        }
+                        , message, self.backtrace),
+                    None => write!(f, "NetCommsError(Invalid Command)"),
                 }
             }
             NetCommsErrorKind::InvalidPacketKind => {
                 match &self.message {
-                    Some(message) => write!(f, "
-                    \n
-                    NetCommsError(Invalid Packet Kind):\n
-                    {}\n
-                    source:\n
-                    {:?}", message, self.backtrace),
-                    None => write!(f, " Invalid Packet Kind"),
+                    Some(message) => write!(f, 
+                        indoc! {
+                        "
+                        \n
+                        NetCommsError(Invalid Packet Kind):\n
+                        {}\n
+                        source:\n
+                        {:?}
+                        "
+                        }
+                        , message, self.backtrace),
+                    None => write!(f, "NetCommsError(Invalid Packet Kind)"),
                 }
             },
             NetCommsErrorKind::SerializingFailed => {
                 match &self.message {
-                    Some(message) => write!(f, "
-                    \n
-                    NetCommsError(Serializing Failed):\n
-                    {}\n
-                    source:\n
-                    {:?}", message, self.backtrace),
-                    None => write!(f, " Serializing Failed"),
+                    Some(message) => write!(f, 
+                        indoc! {
+                        "
+                        \n
+                        NetCommsError(Serializing Failed):\n
+                        {}\n
+                        source:\n
+                        {:?}
+                        "
+                        }
+                        , message, self.backtrace),
+                    None => write!(f, "NetCommsError(Serializing Failed)"),
                 }
             },
             NetCommsErrorKind::DeserializingFailed => {
                 match &self.message {
-                    Some(message) => write!(f, "\n
-                    NetCommsError(Deserializing Failed):\n
-                    {}\n
-                    source:\n
-                    {:?}", message, self.backtrace),
-                    None => write!(f, " Deserializing Failed"),
+                    Some(message) => write!(f, 
+                        indoc! {
+                        "
+                        \n
+                        NetCommsError(Deserializing Failed):\n
+                        {}\n
+                        source:\n
+                        {:?}
+                        "
+                        }
+                        , message, self.backtrace),
+                    None => write!(f, "NetCommsError(Deserializing Failed)"),
                 }
             },
             NetCommsErrorKind::InvalidBufferSize => {
                 match &self.message {
-                    Some(message) => write!(f, "
-                    \n
-                    NetCommsError(Invalid Buffer Size):\n
-                    {}\n
-                    source:\n
-                    {:?}", message, self.backtrace),
-                    None => write!(f, " Invalid Buffer Size"),
+                    Some(message) => write!(f, 
+                        indoc! {
+                        "
+                        \n
+                        NetCommsError(Invalid Buffer Size):\n
+                        {}\n
+                        source:\n
+                        {:?}
+                        "
+                        }
+                        , message, self.backtrace),
+                    None => write!(f, "NetCommsError(Invalid Buffer Size)"),
                 }
             },
             NetCommsErrorKind::WritingToStreamFailed => {
                 match &self.message {
-                    Some(message) => write!(f, "
-                    \n
-                    NetCommsError(Writing To Stream Failed):\n
-                    {}\n
-                    source:\n
-                    {:?}", message, self.backtrace),
-                    None => write!(f, " Writing To Stream Failed"),
+                    Some(message) => write!(f, 
+                        indoc! {
+                        "
+                        \n
+                        NetCommsError(Writing To Stream Failed):\n
+                        {}\n
+                        source:\n
+                        {:?}
+                        "
+                        }
+                        , message, self.backtrace),
+                    None => write!(f, "NetCommsError(Writing To Stream Failed)"),
                 }
             },
             NetCommsErrorKind::ReadingFromStreamFailed => {
                 match &self.message {
-                    Some(message) => write!(f, "
+                    Some(message) => write!(f, 
+                        indoc! {
+                        "
+                        \n
+                        NetCommsError(Reading From Stream Failed):\n
+                        {}\n
+                        source:\n
+                        {:?}
+                        "
+                        }
+                        , message, self.backtrace),
+                    None => write!(f, "NetCommsError(Reading From Stream Failed)"),
+                }
+            },
+            NetCommsErrorKind::CreatingDirFailed => {
+                match &self.message {
+                    Some(message) => write!(f, 
+                    indoc! {
+                    "
                     \n
-                    NetCommsError(Reading From Stream Failed):\n
+                    NetCommsError(Creating Dir Failed):\n
                     {}\n
                     source:\n
-                    {:?}", message, self.backtrace),
-                    None => write!(f, " Reading From Stream Failed"),
+                    {:?}
+                    "
+                    }
+                    , message, self.backtrace),
+                    None => write!(f, "NetCommsError(Creating Dir Failed)"),
+                }
+            },
+            NetCommsErrorKind::CreatingFileFailed => {
+                match &self.message {
+                    Some(message) => write!(f, 
+                    indoc! {
+                    "
+                    \n
+                    NetCommsError(Creating File Failed):\n
+                    {}\n
+                    source:\n
+                    {:?}
+                    "
+                    }
+                    , message, self.backtrace),
+                    None => write!(f, "NetCommsError(Creating File Failed)"),
                 }
             },
             NetCommsErrorKind::OpeningFileFailed => {
                 match &self.message {
-                    Some(message) => write!(f, "
-                    \n
-                    NetCommsError(Opening File Failed):\n
-                    {}\n
-                    source:\n
-                    {:?}", message, self.backtrace),
-                    None => write!(f, " Opening File Failed"),
+                    Some(message) => write!(f, 
+                        indoc! {
+                        "
+                        \n
+                        NetCommsError(Opening File Failed):\n
+                        {}\n
+                        source:\n
+                        {:?}
+                        "
+                        }
+                        , message, self.backtrace),
+                    None => write!(f, "NetCommsError(Opening File Failed)"),
                 }
             },
             NetCommsErrorKind::WritingToFileFailed => {
                 match &self.message {
-                    Some(message) => write!(f, "
-                    \n
-                    NetCommsError(Writing To File Failed):\n
-                    {}\n
-                    source:\n
-                    {:?}", message, self.backtrace),
-                    None => write!(f, " Writing To File Failed"),
+                    Some(message) => write!(f, 
+                        indoc! {
+                        "
+                        \n
+                        NetCommsError(Writing To File Failed):\n
+                        {}\n
+                        source:\n
+                        {:?}
+                        "
+                        }
+                        , message, self.backtrace),
+                    None => write!(f, "NetCommsError(Writing To File Failed)"),
                 }
             },
             NetCommsErrorKind::ReadingFromFileFailed => {
                 match &self.message {
-                    Some(message) => write!(f, "
-                    \n
-                    NetCommsError(Reading From File Failed):\n
-                    {}\n
-                    source:\n
-                    {:?}", message, self.backtrace),
-                    None => write!(f, " Reading From File Failed"),
+                    Some(message) => write!(f, 
+                        indoc! {
+                        "
+                        \n
+                        NetCommsError(Reading From File Failed):\n
+                        {}\n
+                        source:\n
+                        {:?}
+                        "
+                        }
+                        , message, self.backtrace),
+                    None => write!(f, "NetCommsError(Reading From File Failed)"),
                 }
             }
             NetCommsErrorKind::IncompleteMetaData => {
                 match &self.message {
-                    Some(message) => write!(f, "
-                    \n
-                    NetCommsError(Incomplete MetaData):\n
-                    {}\n
-                    source:\n
-                    {:?}", message, self.backtrace),
-                    None => write!(f, " Incomplete MetaData"),
+                    Some(message) => write!(f, 
+                        indoc! {
+                        "
+                        \n
+                        NetCommsError(Incomplete MetaData):\n
+                        {}\n
+                        source:\n
+                        {:?}
+                        "
+                        }
+                        , message, self.backtrace),
+                    None => write!(f, "NetCommsError(Incomplete MetaData)"),
                 }
             }
             NetCommsErrorKind::UnknownMessageKind => {
                 match &self.message {
-                    Some(message) => write!(f, "
-                    \n
-                    NetCommsError(Unknown MessageKind):\n
-                    {}\n
-                    source:\n
-                    {:?}", message, self.backtrace),
-                    None => write!(f, " Unknown MessageKind"),
+                    Some(message) => write!(f, 
+                        indoc! {
+                        "
+                        \n
+                        NetCommsError(Unknown Message Kind):\n
+                        {}\n
+                        source:\n
+                        {:?}
+                        "
+                        }
+                        , message, self.backtrace),
+                    None => write!(f, "NetCommsError(Unknown Message Kind)"),
                 }
             }
             NetCommsErrorKind::OtherSource(_) => {
                 match &self.message {
-                    Some(message) => write!(f, "
-                    \n
-                    NetCommsError(Other Source):\n
-                    {}\n
-                    source:\n
-                    {:?}", message, self.backtrace),
-                    None => write!(f, " Other Source"),
+                    Some(message) => write!(f, 
+                        indoc! {
+                        "
+                        \n
+                        NetCommsError(Other Source):\n
+                        {}\n
+                        source:\n
+                        {:?}
+                        "
+                        }
+                        , message, self.backtrace),
+                    None => write!(f, "NetCommsError(Other Source)"),
                 }
             },
         }
     }    
+}
+
+
+# [test]
+fn error_format() {
+    let error = NetCommsError::new(
+        NetCommsErrorKind::UnknownCommand,
+        None);
+    println!("{}", error);
 }

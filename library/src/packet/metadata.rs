@@ -194,7 +194,8 @@ impl MetaData {
     /// 
     /// # Errors
     ///
-    /// * Will return an error if it fails to create [DateTime<Utc>] from buffer.
+    /// * This should not usually fail as it should be creating [DateTime<Utc>] from valid buffer,
+    /// but will return an error if it from some reason fails to create [DateTime<Utc>] from buffer.
     pub fn datetime(&self) -> Result<DateTime<Utc>, NetCommsError> {
         Ok(DateTime::from_buff(self.datetime.clone())?)
     }

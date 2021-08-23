@@ -1,7 +1,7 @@
-use std::fs::{File, OpenOptions};
+use std::fs::{self, File, OpenOptions};
 use std::io::{BufReader, Read, Write};
 use std::net::TcpStream;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::{Serialize, Deserialize};
 use itertools::Itertools;
@@ -508,7 +508,7 @@ impl Message {
     // Some refactoring and upgrades need to be done.
     // First of all saving files to correct location. Not it is just in same folder as is binary.
     // Then solve situation when the file with same name as already existing file is received.
-    pub fn receive(stream: &mut TcpStream) -> Result<Self, NetCommsError> {
+    pub fn receive(stream: &mut TcpStream, location: &Path) -> Result<Self, NetCommsError> {
 
         // Create new empty Message.
         let mut message = Message::new()?;
@@ -517,9 +517,8 @@ impl Message {
         let metadata = Self::receive_metadata(stream)?;        
         message.set_metadata(metadata);
 
-        // Receive content. This method also receives end_data to know when stop receiving.
-        Self::receive_content(&mut message, stream)?;  
-        
+        Self::receive_content(&mut message, stream, location)?;  
+
         Ok(message)
     }
 
@@ -550,8 +549,11 @@ impl Message {
     }
 
     /// Receives a `content` writes it into `message`. Used inside [Message::receive].
-    fn receive_content(message: &mut Message, stream: &mut TcpStream) -> Result<(), NetCommsError> {
+    fn receive_content(message: &mut Message, stream: &mut TcpStream, location: &Path) -> Result<(), NetCommsError> {
 
+        // Some operations needs to be done only once.
+        let mut is_first = true;
+        let mut location = PathBuf::from(location);
         // Loop to read all content packets.
         loop {         
             let packet = Self::receive_packet(stream)?;
@@ -560,28 +562,23 @@ impl Message {
             match packet.kind() {
                 PacketKind::Content(..) => {
                     match message.metadata().message_kind() {
-                        // An error in case MessageKind is unknown.
+                        // An error in case a MessageKind is unknown.
                         MessageKind::Unknown => {
                             return Err(NetCommsError::new(
                                 NetCommsErrorKind::UnknownMessageKind,
                                 None));
                         },
                         // File needs to be threated differently, other variants are pushed into content vec.
-                        MessageKind::File => {
-                            // Cases where the file with the same name that already exists is send, should be solved,
-                            // as for now it just appends incoming content to the current.
-                            let mut file = OpenOptions::new()
-                                                            .create(true)
-                                                            .append(true)
-                                                            .write(true)
-                                                            .open(message.metadata().file_name().unwrap()) //Unwrap can be used.
-                                                            .unwrap();
-
-                            if let Err(e) = file.write(&packet.kind_owned().content()?) {
-                                return Err(NetCommsError::new(
-                                    NetCommsErrorKind::WritingToFileFailed,
-                                    Some(format!("Could not write to file. ({})", e))));
-                            }                    
+                        MessageKind::File => {                            
+                            if is_first {
+                                let mut location_buf = Self::get_message_location(message, location.as_path());
+                                location_buf.push(message.metadata().file_name().unwrap());
+                                location = location_buf;
+                                message.metadata.set_file_name(Some(String::from(location.to_str().unwrap())));
+                            }
+                            
+                            Self::save_file(message, packet, location.as_path())?;
+                                           
                         }
                         _ => {
                             message.push_content(packet);
@@ -598,7 +595,104 @@ impl Message {
                         Some(format!("Unexpected PacketKind, expected Content or End, arrived:\n {:?}", packet.kind_owned()))));
                 }
             } 
+
+            is_first = false;
         }
+        Ok(())
+    }
+
+    /// Creates a file location from `id` and [DateTime<Utc>] inside [Message] `metadata`.
+    /// * Directory for file will be named in format: `id-year-month-day-hour-minute-second`
+    ///
+    /// # Fields
+    /// * `location` -- directory where new [`path`](PathBuf) will lead.
+    pub fn get_message_location(message: &mut Message, location: &Path) -> PathBuf {
+
+        let mut path = PathBuf::from(location);
+
+        let mut directory_name = String::new();
+
+        let author_id = message.metadata().author_id().to_string();
+        directory_name.push_str(&author_id);
+        directory_name.push('-');
+
+        directory_name.push_str(&message.datetime_as_string());
+
+        path.push(directory_name);
+
+        path
+    }
+
+    /// Returns a [DateTime<Utc>] as [String] in format: `year-month-day-hour-minute-second`.
+    pub fn datetime_as_string(&self) -> String {
+        
+        let mut datetime_str = String::new();
+
+        let author_id = self.metadata().author_id().to_string();
+        datetime_str.push_str(&author_id);
+        datetime_str.push('-');
+
+        // This should not fail, so unwrap can be used.
+        let datetime = self.metadata().datetime().unwrap().naive_utc();
+        let date = datetime.date().to_string();
+        let time = datetime.time().to_string();
+        datetime_str.push_str(&date);
+        datetime_str.push('-');
+        datetime_str.push_str(&time);
+        let datetime_str = datetime_str.replace(":", "-");
+
+        datetime_str
+    }
+
+    /// Saves a file on given `location`.
+    fn save_file(message: &mut Message, packet: Packet, location: &Path) -> Result<(), NetCommsError> {
+
+        let mut file: File;                    
+        if !location.exists() {
+            
+            // It should be save to use unwrap as there is file at the end of the path.
+            if let Err(e) = fs::create_dir_all(location.parent().unwrap()) {
+                return Err(NetCommsError::new(
+                    NetCommsErrorKind::CreatingDirFailed,
+                    Some(format!("Could not create a directory on {}. \n({})", &location.parent().unwrap().to_str().unwrap(), e))));
+            }
+
+            // If file does not exist, new file should be created with write privileges.
+            let create_file_result = OpenOptions::new()
+                                                                  .create(true)
+                                                                  .write(true)
+                                                                  .open(location);
+
+            match create_file_result {
+                Ok(file_in_result) => file = file_in_result,
+                Err(e) => {
+                      return Err(NetCommsError::new(
+                      NetCommsErrorKind::CreatingFileFailed,
+                      Some(format!("Could not create a file: {}. ({})", message.metadata().file_name().unwrap(), e))));
+                },
+            }
+        } else {
+            // If file does exist, new file should be opened with append privileges.
+            let open_file_result = OpenOptions::new()
+                                                                .append(true)
+                                                                .open(location);
+            match open_file_result {
+                Ok(file_in_result) => file = file_in_result,
+                Err(e) => {
+                    return Err(NetCommsError::new(
+                    NetCommsErrorKind::OpeningFileFailed,
+                    Some(format!("Could not open a file: {}. ({})", message.metadata().file_name().unwrap(), e))));
+                },
+            }
+        }
+
+        // Write to file.
+        if let Err(e) = file.write(&packet.kind_owned().content()?) {
+            return Err(NetCommsError::new(
+                NetCommsErrorKind::WritingToFileFailed,
+                Some(format!("Could not write to file. ({})", e))));
+        }    
+
         Ok(())
     }
 
