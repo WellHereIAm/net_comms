@@ -9,9 +9,9 @@ use itertools::Itertools;
 use crate::buffer::{ToBuffer, FromBuffer};
 use crate::command::Command;
 use crate::error::{NetCommsError, NetCommsErrorKind};
-use crate::message::MessageKind;
+use crate::message::{MessageKind, ServerReply};
 use crate::packet::{MetaData, PacketKind, Packet};
-use crate::config::{MAX_PACKET_CONTENT_SIZE, MAX_PACKET_SIZE, SERVER_ID, SERVER_USERNAME};
+use crate::config::{MAX_PACKET_CONTENT_SIZE, MAX_PACKET_SIZE, SERVER_ID, SERVER_USERNAME, UNKNOWN_USER_ID};
 use crate::request::Request;
 use crate::user::{User, UserUnchecked};
 
@@ -125,6 +125,26 @@ impl Message {
                     Some("Message::from_command() failed to create a message from given command.".to_string())));
             }
         }
+    }
+
+    pub fn from_server_reply(server_reply: ServerReply) -> Result<Self, NetCommsError> {
+
+        let mut message = Self::new().unwrap();
+
+        let content = server_reply.to_ron()?.to_buff()?;
+        let author = User::new(SERVER_ID, SERVER_USERNAME.to_string(), "None".to_string());
+        let metadata = MetaData::new(&content, MessageKind::SeverReply,
+                                     author, UNKNOWN_USER_ID, vec![UNKNOWN_USER_ID.to_string()],
+                                     None)?;
+        let end_data = Packet::new(PacketKind::End);
+
+        message.set_metadata(metadata);
+        for packet in Message::split_to_max_packet_size(content) {
+            message.push_content(Packet::new(PacketKind::new_content(packet)));
+        }
+        message.set_end_data(end_data);
+
+        Ok(message)
     }
 
     /// Creates a [Message] from [Command::Send]. Used inside [Message::from_command].

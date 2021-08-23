@@ -316,6 +316,22 @@ impl NetCommsError {
                     None => write!(f, "NetCommsError(Unknown Message Kind)"),
                 }
             }
+            NetCommsErrorKind::ParsingFailed =>{
+                match &self.message {
+                    Some(message) => write!(f, 
+                        indoc! {
+                        "
+                        \n
+                        NetCommsError(Parsing Failed):\n
+                        {}\n
+                        source:\n
+                        {:?}
+                        "
+                        }
+                        , message, self.backtrace),
+                    None => write!(f, "NetCommsError(Parsing Failed)"),
+                }
+            }
             NetCommsErrorKind::OtherSource(_) => {
                 match &self.message {
                     Some(message) => write!(f, 

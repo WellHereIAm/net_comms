@@ -31,7 +31,7 @@ pub mod user;
 /// Shared constant and static variables used throughout this library.
 pub mod config;
 
-/// Module to simplify development, so I can use use library::prelude::*, most likely will be deleted later.
+/// Re-export of all modules to ease the development.
 pub mod prelude {
     pub use crate::command::{self, *};
     pub use crate::buffer::{self, *};

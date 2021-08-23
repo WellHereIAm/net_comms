@@ -12,11 +12,6 @@ use library::prelude::*;
 // ERROR HANDLING
 fn main() -> Result<(), NetCommsError> {
 
-    let x = 1..=1;
-    for y in x {
-        println!("{}", y)
-    }
-
     let socket = format!("{}:{}", ADDR, PORT);
     let user = get_user(&User::default())?;
     let (waiting_messages_transmitter, _waiting_messages_receiver) = mpsc::channel::<Message>();
