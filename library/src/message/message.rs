@@ -4,6 +4,7 @@ use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 
 use serde::{Serialize, Deserialize};
+use ron::ser;
 use itertools::Itertools;
 
 use crate::buffer::{ToBuffer, FromBuffer};
@@ -574,6 +575,7 @@ impl Message {
         // Some operations needs to be done only once.
         let mut is_first = true;
         let mut location = PathBuf::from(location);
+        let mut file_location = location.clone();
         // Loop to read all content packets.
         loop {         
             let packet = Self::receive_packet(stream)?;
@@ -588,25 +590,51 @@ impl Message {
                                 NetCommsErrorKind::UnknownMessageKind,
                                 None));
                         },
-                        // File needs to be threated differently, other variants are pushed into content vec.
-                        MessageKind::File => {                            
+                        MessageKind::Text | MessageKind::File => {
                             if is_first {
-                                let mut location_buf = Self::get_message_location(message, location.as_path());
-                                location_buf.push(message.metadata().file_name().unwrap());
-                                location = location_buf;
-                                message.metadata.set_file_name(Some(String::from(location.to_str().unwrap())));
+                                location = Self::get_message_location(message, location.as_path(), message.kind());
+                                if let Err(e) = fs::create_dir_all(&location) {
+                                    return Err(NetCommsError::new(
+                                        NetCommsErrorKind::CreatingDirFailed,
+                                        Some(format!("Could not create a directory on {}. \n({})",
+                                                             &location.parent().unwrap().to_str().unwrap(), e))));
+                                }
+                                if let Some(file_name) = message.metadata().file_name() {
+                                    file_location = location.clone();
+                                    file_location.push(file_name);  
+                                    message.metadata.set_file_name(Some(String::from(file_location.clone().to_str().unwrap())));    
+                                }
+
+                                if let Some(_) = message.metadata().file_name() {
+                                    Self::save_file(message, packet, file_location.as_path())?;
+                                } else {
+                                    message.push_content(packet);
+                                }
                             }
-                            
-                            Self::save_file(message, packet, location.as_path())?;
-                                           
                         }
                         _ => {
+                            if is_first {
+                                location = Self::get_message_location(message, location.as_path(), message.kind());
+                            }
                             message.push_content(packet);
                         }
                     }
                 },
                 PacketKind::End => {
                     message.set_end_data(packet);
+                    location.push("message.ron");
+
+                    if let MessageKind::Request = message.kind() {
+                        if let Request::GetWaitingMessagesAuto = Request::from_ron(& String::from_buff(message.clone().content())?)? {
+                            break;
+                        }
+                    }
+                    
+                    let message_ron = ser::to_string(message).unwrap();
+                    fs::create_dir_all(location.parent().unwrap()).unwrap();
+                    
+                    let mut file = fs::OpenOptions::new().create(true).write(true).open(location).unwrap();
+                    file.write_fmt(format_args!("{}", message_ron)).unwrap();
                     break;
                 },
                 _ => {
@@ -626,19 +654,17 @@ impl Message {
     ///
     /// # Fields
     /// * `location` -- directory where new [`path`](PathBuf) will lead.
-    pub fn get_message_location(message: &mut Message, location: &Path) -> PathBuf {
+    pub fn get_message_location(message: &mut Message, location: &Path, message_kind: MessageKind) -> PathBuf {
 
         let mut path = PathBuf::from(location);
-
-        let mut directory_name = String::new();
-
-        let author_id = message.metadata().author_id().to_string();
-        directory_name.push_str(&author_id);
-        directory_name.push('-');
-
-        directory_name.push_str(&message.datetime_as_string());
-
-        path.push(directory_name);
+        path.push(message.metadata().author_username());
+        match message_kind {
+            MessageKind::Request => path.push("requests"),
+            MessageKind::Text | MessageKind::File => path.push("user_to_user"),
+            MessageKind::SeverReply => path.push("server_replies"),
+            _ => path.push("other"),
+        }
+        path.push(message.datetime_as_string());
 
         path
     }
@@ -647,11 +673,6 @@ impl Message {
     pub fn datetime_as_string(&self) -> String {
         
         let mut datetime_str = String::new();
-
-        let author_id = self.metadata().author_id().to_string();
-        datetime_str.push_str(&author_id);
-        datetime_str.push('-');
-
         // This should not fail, so unwrap can be used.
         let datetime = self.metadata().datetime().unwrap().naive_utc();
         let date = datetime.date().to_string();

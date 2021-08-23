@@ -16,7 +16,7 @@ pub enum Request {
     Register(UserUnchecked),
 
     /// Request to get any [messages](crate::message::Message) that were sent to requesting client.
-    GetWaitingMessages,
+    GetWaitingMessagesAuto,
 
     /// Used if some method fails to recognize the [Request].
     Unknown,    

@@ -201,7 +201,7 @@ impl MetaData {
     }
 
     /// Returns an `author_username`.
-    pub fn author_name(&self) -> String {
+    pub fn author_username(&self) -> String {
         self.author_username.clone()
     }
 

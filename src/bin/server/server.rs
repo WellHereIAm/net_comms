@@ -15,13 +15,14 @@ use ron::de;
 
 use library::prelude::*;
 
+// Why the fuck fields can be accessed inside Server without being public?
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerConfig {
-    pub ip: String,
-    pub port_start: usize,
-    pub port_end: usize,
-    pub maximum_active_connections: usize,
-    pub save_location: PathBuf,
+    ip: String,
+    port_start: usize,
+    port_end: usize,
+    maximum_active_connections: usize,
+    save_location: PathBuf,
 }
 
 impl ServerConfig {
@@ -104,6 +105,7 @@ impl Server {
         println!("Starting server...");
         
         let server = Arc::clone(&server);
+
         thread::Builder::new().name("listener_thread".to_string()).spawn(move || {
 
             let server_guard = server.lock().unwrap();
@@ -111,15 +113,13 @@ impl Server {
             drop(server_guard);
 
             loop {
+                let server_guard = server.lock().unwrap();
                 match listener.accept() {
                     Ok((stream, _socket_addr)) => {
-                        let server_guard = server.lock().unwrap();
                         Self::handle_connection(&server_guard, stream);
                     },
                     Err(e) => eprintln!("{}", e),
                 };
-
-                let server_guard = server.lock().unwrap();
 
                 if let Ok(value) = server_guard.connection_handled.try_recv() {
                     if value {
@@ -133,6 +133,7 @@ impl Server {
                 }
             }
         }).unwrap();
+
 
         println!("Server started.");
         Ok(())
@@ -152,32 +153,35 @@ impl Server {
 
         let client_thread_sender = self.connection_handled_sender.clone();
 
-        if *number_of_active_connections_guard < self.config.maximum_active_connections {
-            *number_of_active_connections_guard += 1;
-            drop(number_of_active_connections_guard);
+        loop {
+            if *number_of_active_connections_guard < self.config.maximum_active_connections {
+                *number_of_active_connections_guard += 1;
+                drop(number_of_active_connections_guard);
+    
+                thread::Builder::new().name("client_thread".to_string()).spawn(move || {
+                    match Message::receive(&mut stream, location.as_path()) {
+                        Ok(message) => {
+                            match message.kind() {
+                                MessageKind::Text | MessageKind::File => {
+                                    let _non_existent_recipients = Self::receive_user_to_user_message(message, waiting_messages, users);      
+                                },
+                                MessageKind::Request => {
+                                    Self::receive_request(message, stream, waiting_messages, users, ids);
+                                },
+                                _ => {}
+                            }
+                        },
+                        Err(_) => todo!(),
+                    }
+    
+                    if let Err(e) = client_thread_sender.send(true) {
+                        eprintln!("{}", e);
+                    }
+                }).unwrap(); // !!!!!
 
-            thread::Builder::new().name("client_thread".to_string()).spawn(move || {
-                match Message::receive(&mut stream, location.as_path()) {
-                    Ok(message) => {
-                        match message.kind() {
-                            MessageKind::Text | MessageKind::File => {
-                                let _non_existent_recipients = Self::receive_user_to_user_message(message, waiting_messages, users);      
-                            },
-                            MessageKind::Request => {
-                                Self::receive_request(message, stream, waiting_messages, users, ids);
-                            },
-                            _ => {}
-                        }
-                    },
-                    Err(_) => todo!(),
-                }
-
-                if let Err(e) = client_thread_sender.send(true) {
-                    eprintln!("{}", e);
-                }
-            }).unwrap(); // !!!!!
+                break;
+            }
         }
-
         
     }
 
@@ -225,7 +229,7 @@ impl Server {
                        users: Arc<Mutex<HashMap<String, User>>>,
                        ids: Arc<Mutex<Vec<usize>>>) {
 
-        let author = User::new(message.metadata().author_id(), message.metadata().author_name(), "Dummy".to_string());
+        let author = User::new(message.metadata().author_id(), message.metadata().author_username(), "Dummy".to_string());
         let request = Request::from_ron(&String::from_buff(message.content()).unwrap()).unwrap();
 
         match request {
@@ -235,7 +239,7 @@ impl Server {
             Request::Login(user_unchecked) => {
                 Self::user_login(stream, users, user_unchecked);
             },
-            Request::GetWaitingMessages => {
+            Request::GetWaitingMessagesAuto => {
                 Self::return_waiting_messages(stream, waiting_messages, author);
             },
             Request::Unknown => todo!(),

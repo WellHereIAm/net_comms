@@ -5,6 +5,7 @@
         "chrono",
         "datetime",
         "itertools",
+        "nonblocking",
         "paks",
         "rqst",
         "starpak",

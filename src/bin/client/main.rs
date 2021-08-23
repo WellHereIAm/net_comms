@@ -79,7 +79,7 @@ fn get_waiting_messages(user: User, socket: String, _mpsc_transmitter: Sender<Me
 
         loop {
             // Need to solve error handling. Maybe another mpsc channel?
-            let request = Request::GetWaitingMessages;
+            let request = Request::GetWaitingMessagesAuto;
             let message = Message::from_request(request, user.clone()).unwrap();
 
             match TcpStream::connect(&socket) {
@@ -91,7 +91,7 @@ fn get_waiting_messages(user: User, socket: String, _mpsc_transmitter: Sender<Me
                             Ok(message) => {
                                 // Why use multiple statements, when I can use one :D
                                 println!("{author} [{datetime}]: {content}",
-                                    author = message.metadata().author_name(),
+                                    author = message.metadata().author_username(),
                                     datetime = message.datetime_as_string(),
                                     content = match message.kind() {
                                         MessageKind::File => format!("Received a file {name} at {location}",
