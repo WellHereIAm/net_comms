@@ -807,9 +807,9 @@ impl Message {
         self.kind.clone()
     }
 
-    // Returns [Message] `metadata`.
+    /// Returns [Message] `metadata`.
     ///
-    /// It is usually a low const operation, so `kind` is cloned, but owned version exist as well.
+    /// It is usually a low const operation and [Message] is usually needed afterwards, so `kind` is cloned, but owned version exist as well.
     pub fn metadata(&self) -> MetaData {
         self.metadata.clone()
     }

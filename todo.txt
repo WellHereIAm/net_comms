@@ -1,8 +1,26 @@
-Clearing server directories from client requests.
-Move Message::datetime_as_string to MetaData struct.
-Message::receive needs to save files to correct location = not to just a folder where is an app.
-Should one more User-like structs that will be generally used, User should be stored on server only and used to create usable User-like
-    that will hold less information, like no password etc, just what´s needed.
-Change from usize to u32 or u64.
-Check if automatic Message length in metadata is correct.
-Change ServerReply::Error message to enum with error variants.
+1. Create Client struct similar to Server.
+2. Concepts:
+
+    Making messages smaller:
+        Packet size part: from usize to u16
+
+        MetaData message_length from usize to u32
+        MetaData author_id from usize to u32
+        MetaData recipient_id from usize to u32
+
+    Change length of content in PacketKind from usize to u16 as max packet length probably won`t ever go over 63 000. 
+    Create some File struct to be hold inside new MetaData is_file field.
+    Give PacketKind::End data, just for sake of doing it.
+    Move Message::datetime_as_string to MetaData struct.
+    Create some UserLite struct to hold only needed user data, without password etc. , just what´s needed.
+   
+3. Move whole command module to client as it is client only, create for server similar one.
+4. Create tests.
+5. Solve unwraps from thread spawning in Server and other unwraps in Server.
+6. Change ServerReply::Error message to enum with error variants.
+7. Change ServerReply::User User to new UserLite.
+8. Create automatic backups for server
+    Create chunked users HashMap and waiting_messages HashMap, periodically go through those and save them to files(update existing ones)
+    Create ability to start server from backup and to gracefully shut-down server.
+
+9. Change from usize to u32.

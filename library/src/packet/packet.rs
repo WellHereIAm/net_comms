@@ -107,3 +107,11 @@ impl Packet {
         self.kind
     }
 }
+
+
+# [test]
+fn u16_to_bytes() {
+    let u16_var = 63_000 as u16;
+    let bytes = u16_var.to_be_bytes();
+    println!("{:?} {}", &bytes, bytes.len());
+}

@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::{fs, thread};
 use std::io::Read;
 use std::net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream};
-use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::{Arc, Mutex, mpsc};
@@ -19,8 +18,7 @@ use library::prelude::*;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerConfig {
     ip: String,
-    port_start: usize,
-    port_end: usize,
+    port: u16,
     maximum_active_connections: usize,
     save_location: PathBuf,
 }
@@ -93,7 +91,7 @@ impl Server {
 
     pub fn create_listener(&self) -> TcpListener {
 
-        let socket = SocketAddrV4::new(self.ip(), self.ports().next().unwrap() as u16);
+        let socket = SocketAddrV4::new(self.ip(), self.config.port);
         match TcpListener::bind(socket) {
             Ok(listener) => return  listener,
             Err(e) => panic!("Failed to create listener.\n{}", &e),
@@ -104,16 +102,16 @@ impl Server {
 
         println!("Starting server...");
         
-        let server = Arc::clone(&server);
+        let server_clone = Arc::clone(&server);
 
         thread::Builder::new().name("listener_thread".to_string()).spawn(move || {
 
-            let server_guard = server.lock().unwrap();
+            let server_guard = server_clone.lock().unwrap();
             let listener = server_guard.create_listener();
             drop(server_guard);
 
             loop {
-                let server_guard = server.lock().unwrap();
+                let server_guard = server_clone.lock().unwrap();
                 match listener.accept() {
                     Ok((stream, _socket_addr)) => {
                         Self::handle_connection(&server_guard, stream);
@@ -133,6 +131,8 @@ impl Server {
                 }
             }
         }).unwrap();
+
+        let _server = Arc::clone(&server);
 
 
         println!("Server started.");
@@ -364,10 +364,6 @@ impl Server {
             Ok(ip) => return ip,
             Err(_) => panic!("Failed to get an ip address.\nFailed to parse string from config to Ipv4Addr."),
         }
-    }
-
-    pub fn ports(&self) -> RangeInclusive<usize> {
-        self.config.port_start..=self.config.port_end
     }
 }
 
