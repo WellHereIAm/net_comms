@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 use library::prelude::*;
 
 mod users;
+mod server;
 
 // ERROR HANDLING
 fn main() -> Result<(), NetCommsError> {

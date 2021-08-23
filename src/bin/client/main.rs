@@ -1,5 +1,3 @@
-
-use std::fmt::format;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
 use std::thread::JoinHandle;
@@ -13,6 +11,11 @@ use library::prelude::*;
 
 // ERROR HANDLING
 fn main() -> Result<(), NetCommsError> {
+
+    let x = 1..=1;
+    for y in x {
+        println!("{}", y)
+    }
 
     let socket = format!("{}:{}", ADDR, PORT);
     let user = get_user(&User::default())?;
