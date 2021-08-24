@@ -2,7 +2,6 @@
 use serde::{Serialize, Deserialize};
 
 use crate::buffer::FromBuffer;
-use crate::message::MessageKind;
 use crate::packet::{Packet, PacketKind};
 use crate::ron::{ToRon, FromRon};
 use crate::pretty_structs::PacketKindPretty;
