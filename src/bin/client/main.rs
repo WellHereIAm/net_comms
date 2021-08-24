@@ -8,6 +8,8 @@ use std::sync::mpsc;
 extern crate library;
 use library::prelude::*;
 
+mod client;
+
 
 // ERROR HANDLING
 fn main() -> Result<(), NetCommsError> {

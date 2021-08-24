@@ -8,7 +8,6 @@ use std::sync::{Arc, Mutex, mpsc};
 use std::sync::mpsc::{Receiver, Sender};
 
 use serde::{Serialize, Deserialize};
-use ron::de;
 use indoc::indoc;
 
 use library::prelude::*;
@@ -30,6 +29,9 @@ pub struct ServerConfig {
     save_location: PathBuf,
 }
 
+impl ToRon for ServerConfig {}
+impl FromRon<'_> for ServerConfig {}
+
 impl ServerConfig {
 
     pub fn new(config_location: &Path) -> Result<Self, NetCommsError> {
@@ -43,7 +45,7 @@ impl ServerConfig {
                         None));
                 } 
 
-                match de::from_str(&buffer) {
+                match Self::from_ron(&buffer) {
                     Ok(server_settings) => return Ok(server_settings),
                     Err(e) => Err(NetCommsError::new(
                         NetCommsErrorKind::DeserializingFailed,

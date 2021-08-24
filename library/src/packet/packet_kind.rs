@@ -2,6 +2,7 @@ use serde::{Serialize, Deserialize};
 
 use crate::buffer::{ToBuffer, FromBuffer};
 use crate::error::{NetCommsError, NetCommsErrorKind};
+use crate::ron::{ToRon, FromRon};
 
 use PacketKind::*;
 
@@ -35,6 +36,9 @@ pub enum PacketKind {
     /// Used in case if [Packet](super::Packet) fails to recognize a [PacketKind].
     Unknown,
 }
+
+impl ToRon for PacketKind {}
+impl FromRon<'_> for PacketKind {}
 
 impl ToBuffer for PacketKind {
 

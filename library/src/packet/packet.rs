@@ -3,6 +3,7 @@ use serde::{Serialize, Deserialize};
 use crate::buffer::{ToBuffer, FromBuffer};
 use crate::error::{NetCommsError, NetCommsErrorKind};
 use crate::packet::PacketKind;
+use crate::ron::{ToRon, FromRon};
 use crate::config::PACKET_DESCRIPTION_SIZE;
 
 
@@ -19,6 +20,9 @@ pub struct Packet {
     size: usize,    // Size of whole packet with contents in number of bytes.
     kind: PacketKind,   // Kind of packet, also holds all other packet data.
 }
+
+impl ToRon for Packet {}
+impl FromRon<'_> for Packet {}
 
 impl ToBuffer for Packet {
     
@@ -106,12 +110,4 @@ impl Packet {
     pub fn kind_owned(self) -> PacketKind {
         self.kind
     }
-}
-
-
-# [test]
-fn u16_to_bytes() {
-    let u16_var = 63_000 as u16;
-    let bytes = u16_var.to_be_bytes();
-    println!("{:?} {}", &bytes, bytes.len());
 }

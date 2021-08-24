@@ -1,8 +1,6 @@
 use serde::{Serialize, Deserialize};
-use ron::ser;
-use ron::de;
 
-use crate::error::{NetCommsError, NetCommsErrorKind};
+use crate::ron::{ToRon, FromRon};
 use crate::user::UserUnchecked;
 
 
@@ -22,33 +20,5 @@ pub enum Request {
     Unknown,    
 }
 
-impl Request {
-
-    /// Returns a [RON](ron) from [Request].
-    ///
-    /// # Errors
-    /// * Will return [NetCommsError] with kind [NetCommsErrorKind::SerializingFailed] if it fails to serialize this [Request].
-    pub fn to_ron(&self) -> Result<String, NetCommsError>{
-        match ser::to_string(&self) {
-            Ok(serialized) => Ok(serialized),
-            Err(_) => Err(NetCommsError::new(
-                NetCommsErrorKind::SerializingFailed,
-                Some("Serializing Request struct failed.".to_string())))
-        }
-    }
-
-    /// Creates [Request] from [RON](ron).
-    ///
-    /// # Errors
-    ///
-    /// Will return [NetCommsError] with kind [NetCommsErrorKind::DeserializingFailed]
-    /// if it fails to deserialize given string to [Request].
-    pub fn from_ron(ron: &String) -> Result<Self, NetCommsError> {
-        match de::from_str(ron) {
-            Ok(metadata) => Ok(metadata),
-            Err(_) => Err(NetCommsError::new(
-                NetCommsErrorKind::DeserializingFailed,
-                Some("Deserializing of given RON to Request struct failed.".to_string())))
-        }
-    }
-}
+impl ToRon for Request {}
+impl FromRon<'_> for Request {}

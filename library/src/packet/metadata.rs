@@ -2,12 +2,11 @@ use std::time::SystemTime;
 
 use serde::{Serialize, Deserialize};
 use chrono::{DateTime, NaiveDateTime, Utc};
-use ron::ser::{self, PrettyConfig};
-use ron::de;
 
 use crate::buffer::{ToBuffer, FromBuffer};
-use crate::error::{NetCommsError, NetCommsErrorKind};
+use crate::error::NetCommsError;
 use crate::message::{Message, MessageKind};
+use crate::ron::{ToRon, FromRon};
 use crate::user::User;
 
 
@@ -37,6 +36,9 @@ pub struct MetaData {
     recipients: Vec<String>,
     file_name: Option<String>,  
 }
+
+impl ToRon for MetaData {}
+impl FromRon<'_> for MetaData {}
 
 impl ToBuffer for MetaData {
 
@@ -119,65 +121,6 @@ impl MetaData {
             recipients: vec![],
             file_name: None,
         })
-    }
-
-    /// Returns a [RON](ron) from [MetaData].
-    ///
-    /// Mostly used in [MetaData::to_buff].
-    ///
-    /// # Errors
-    /// * Will return [NetCommsError] with kind [NetCommsErrorKind::SerializingFailed] if it fails to serialize this [MetaData].
-    pub fn to_ron(&self) -> Result<String, NetCommsError>{
-        match ser::to_string(&self) {
-            Ok(serialized) => Ok(serialized),
-            Err(_) => Err(NetCommsError::new(
-                NetCommsErrorKind::SerializingFailed,
-                Some("Serializing MetaData struct failed.".to_string())))
-        }
-    }
-
-    /// Returns a pretty formatted [RON](ron) from [MetaData].
-    ///
-    /// Optional `config` gives a [PrettyConfig] to use for formatting, but there is default one.
-    ///
-    /// # Errors
-    /// * Will return [NetCommsError] with kind [NetCommsErrorKind::SerializingFailed] if it fails to serialize this [MetaData].
-    pub fn to_ron_pretty(&self, config: Option<PrettyConfig>) -> Result<String, NetCommsError> {
-
-        let config = match config {
-            Some(config) => config,
-            None => {
-                let config = PrettyConfig::new()
-                    .with_depth_limit(4)
-                    .with_indentor("\n\r".to_owned())
-                    .with_decimal_floats(true);
-                config
-            },
-        };
-
-       match ser::to_string_pretty(&self, config) {
-            Ok(serialized) => Ok(serialized),
-            Err(_) => Err(NetCommsError::new(
-                NetCommsErrorKind::SerializingFailed,
-                Some("Serializing MetaData struct failed.".to_string())))
-        }
-
-    }
-
-    /// Creates [MetaData] from [RON](ron).
-    ///
-    /// Mostly used in [MetaData::from_buff].
-    /// # Errors
-    ///
-    /// Will return [NetCommsError] with kind [NetCommsErrorKind::DeserializingFailed]
-    /// if it fails to deserialize given string to [MetaData].
-    pub fn from_ron(ron: &String) -> Result<Self, NetCommsError> {
-        match de::from_str(ron) {
-            Ok(metadata) => Ok(metadata),
-            Err(_) => Err(NetCommsError::new(
-                NetCommsErrorKind::DeserializingFailed,
-                Some("Deserializing of given RON to MetaData struct failed.".to_string())))
-        }
     }
 
     /// Returns [MessageKind] .

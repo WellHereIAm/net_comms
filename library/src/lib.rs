@@ -25,6 +25,11 @@ pub mod packet;
 /// Module containing [Request](request::Request), which is used to send requests from client to server.
 pub mod request;
 
+/// Module containing [FromRon] and [ToRon] traits.
+///
+/// Those traits have default methods so they do not need any work on implementation.
+pub mod ron;
+
 /// Module containing structs that are used for user identification.
 pub mod user;
 
@@ -39,6 +44,7 @@ pub mod prelude {
     pub use crate::message::{self, *};
     pub use crate::packet::{self, *};
     pub use crate::request::{self, *};
+    pub use crate::ron::{self, *};
     pub use crate::user::{self, *};
     pub use crate::config::{self, *};
 }
