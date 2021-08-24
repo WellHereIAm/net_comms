@@ -46,6 +46,9 @@ pub struct Message {
     end_data: Packet,   // This should never grow to more than one packet.
 }
 
+impl ToRon for Message {}
+impl FromRon<'_> for Message {}
+
 /// Constructors
 impl Message {
     
@@ -71,7 +74,7 @@ impl Message {
     /// let end_data = Packet::new(PacketKind::End);
     /// 
     /// message.set_metadata(metadata);
-    /// message.push_content(Packet::new(PacketKind::new_content(content)));
+    /// message.push_content(Packet::new(PacketKind::Content, content));
     /// message.set_end_data(end_data);
     /// ```
     /// # Errors
@@ -139,11 +142,11 @@ impl Message {
         let metadata = MetaData::new(&content, MessageKind::SeverReply,
                                      author, UNKNOWN_USER_ID, vec![UNKNOWN_USER_ID.to_string()],
                                      None)?;
-        let end_data = Packet::new(PacketKind::End);
+        let end_data = Packet::new(PacketKind::End, Vec::new());
 
         message.set_metadata(metadata);
         for packet in Message::split_to_max_packet_size(content) {
-            message.push_content(Packet::new(PacketKind::new_content(packet)));
+            message.push_content(Packet::new(PacketKind::Content, packet));
         }
         message.set_end_data(end_data);
 
@@ -162,7 +165,7 @@ impl Message {
 
         message.set_content(content);
 
-        let end_data = Packet::new(PacketKind::End);
+        let end_data = Packet::new(PacketKind::End, Vec::new());
         message.set_end_data(end_data);
 
         Ok(message)    
@@ -186,7 +189,7 @@ impl Message {
 
         message.set_content(content);
 
-        let end_data = Packet::new(PacketKind::End);
+        let end_data = Packet::new(PacketKind::End, Vec::new());
         message.set_end_data(end_data);
 
         Ok(message)  
@@ -210,7 +213,7 @@ impl Message {
 
         message.set_content(content);
 
-        let end_data = Packet::new(PacketKind::End);
+        let end_data = Packet::new(PacketKind::End, Vec::new());
         message.set_end_data(end_data);
 
         Ok(message)  
@@ -254,7 +257,7 @@ impl Message {
 
         message.set_content(content);
 
-        let end_data = Packet::new(PacketKind::End);
+        let end_data = Packet::new(PacketKind::End, Vec::new());
         message.set_end_data(end_data);
 
         Ok(message)  
@@ -370,9 +373,9 @@ impl Message {
              id += 1;
              let packet: Packet;
              if id == n_of_metadata_packets {
-                 packet = Packet::new(PacketKind::new_metadata_end(buff));
+                 packet = Packet::new(PacketKind::MetaDataEnd, buff);
              } else {
-                 packet = Packet::new(PacketKind::new_metadata(buff));
+                 packet = Packet::new(PacketKind::MetaData, buff);
              }
              
              if let Err(e) = stream.write(&packet.to_buff()?) {
@@ -409,7 +412,7 @@ impl Message {
                     }
                 } else {
                     // Create a buffer with exact buffer size.
-                    buff = vec![0_u8; MAX_PACKET_CONTENT_SIZE];
+                    buff = vec![0_u8; MAX_PACKET_CONTENT_SIZE as usize];
                     if let Err(e) = reader.read_exact(&mut buff) {  // This read_exact instead of read is really important.
                         return Err(NetCommsError::new(
                             NetCommsErrorKind::ReadingFromFileFailed,
@@ -417,7 +420,7 @@ impl Message {
                     } 
                 }    
 
-                packet = Packet::new(PacketKind::new_content(buff));
+                packet = Packet::new(PacketKind::Content, buff);
             }
 
             if let Err(e) = stream.write(&packet.to_buff()?) {
@@ -521,17 +524,17 @@ impl Message {
         loop {   
             let packet = Self::receive_packet(stream)?;         
             match packet.kind() {
-                PacketKind::MetaData(..) => {
-                    metadata_buff.extend(packet.kind_owned().content()?);
+                PacketKind::MetaData => {
+                    metadata_buff.extend(packet.content_owned());
                 }
-                PacketKind::MetaDataEnd(..) => {
-                    metadata_buff.extend(packet.kind_owned().content()?);
+                PacketKind::MetaDataEnd => {
+                    metadata_buff.extend(packet.content_owned());
                     break;
                 },
                 _ => {
                     return Err(NetCommsError::new(
                         NetCommsErrorKind::InvalidPacketKind, 
-                        Some(format!("Unexpected PacketKind, expected MetaData or MetaDataEnd, arrived:\n {:?}", packet.kind_owned()))));
+                        Some(format!("Unexpected PacketKind, expected MetaData or MetaDataEnd, arrived:\n {:?}", packet.kind()))));
                 }               
             }
         }
@@ -551,7 +554,7 @@ impl Message {
 
             // Get a packet kind and modify a message based on that. 
             match packet.kind() {
-                PacketKind::Content(..) => {
+                PacketKind::Content => {
                     match message.metadata().message_kind() {
                         // An error in case a MessageKind is unknown.
                         MessageKind::Unknown => {
@@ -609,7 +612,7 @@ impl Message {
                 _ => {
                     return Err(NetCommsError::new(
                         NetCommsErrorKind::InvalidPacketKind, 
-                        Some(format!("Unexpected PacketKind, expected Content or End, arrived:\n {:?}", packet.kind_owned()))));
+                        Some(format!("Unexpected PacketKind, expected Content or End, arrived:\n {:?}", packet.kind()))));
                 }
             } 
 
@@ -622,16 +625,16 @@ impl Message {
     fn receive_packet(stream: &mut TcpStream) -> Result<Packet, NetCommsError> {
 
         // Read the size of packet.
-        let mut size_buff = vec![0_u8; 8];
+        let mut size_buff = vec![0_u8; 2];
         if let Err(e) = stream.read_exact(&mut size_buff) {
             return Err(NetCommsError::new(
                 NetCommsErrorKind::ReadingFromStreamFailed, 
                 Some(format!("Failed to read the size of packet. \n({})", e))));
         }
-        let size = usize::from_buff(size_buff.clone())?;
+        let size = u16::from_buff(size_buff.clone())?;
 
         // Read rest of packet.
-        let mut buff = vec![0_u8; size - 8];    // - 8 for size of packet encoded as bytes which already exist.
+        let mut buff = vec![0_u8; (size - 2) as usize];    // - 8 for size of packet encoded as bytes which already exist.
         if let Err(e) = stream.read_exact(&mut buff) {
             return Err(NetCommsError::new(
                 NetCommsErrorKind::ReadingFromStreamFailed, 
@@ -644,45 +647,6 @@ impl Message {
         
         // Create and return a packet from buffer.
         Ok(Packet::from_buff(buff)?)
-    }
-}
-
-/// Setters.
-impl Message {
-    
-    /// Sets a `metadata` of [Message]. Also sets message kind.
-    ///
-    /// Takes an ownership of `metadata` given in argument.
-    pub fn set_metadata(&mut self, metadata: MetaData) {
-
-        self.kind = metadata.message_kind();
-        self.metadata = metadata;
-    }
-
-    /// Adds a new [Packet] to [Message] content.
-    ///
-    /// Takes an ownership of `packet` given in argument. 
-    pub fn push_content(&mut self, packet: Packet) {
-        self.content.push(packet);
-    }
-
-    /// Sets `content` of [Message].
-    ///
-    /// This takes an ownership of `content` in argument.
-    ///
-    /// This is preferred way of setting a content for [Message].
-    pub fn set_content(&mut self, content: Vec<u8>) {
-        self.content = Self::split_to_max_packet_size(content)
-                            .into_iter()
-                            .map(|buffer| Packet::new(PacketKind::new_content(buffer)))
-                            .collect();
-    }
-
-    /// Sets an `end_data` of [Message].
-    ///
-    /// Takes an ownership of `end_data` given in argument.
-    pub fn set_end_data(&mut self, end_data: Packet) {
-        self.end_data = end_data;
     }
 }
 
@@ -717,8 +681,8 @@ impl Message {
     pub fn content_owned(self) ->  Vec<u8> {
         let mut content: Vec<u8> = Vec::new();
         for data in self.content.into_iter() {
-            if let PacketKind::Content(_, data) = data.kind_owned() { 
-                content.extend(data);
+            if let PacketKind::Content = data.kind() { 
+                content.extend(data.content_owned());
             }
         }
         content
@@ -737,21 +701,60 @@ impl Message {
     }
 }
 
+/// Setters.
+impl Message {
+    
+    /// Sets a `metadata` of [Message]. Also sets message kind.
+    ///
+    /// Takes an ownership of `metadata` given in argument.
+    pub fn set_metadata(&mut self, metadata: MetaData) {
+
+        self.kind = metadata.message_kind();
+        self.metadata = metadata;
+    }
+
+    /// Adds a new [Packet] to [Message] content.
+    ///
+    /// Takes an ownership of `packet` given in argument. 
+    pub fn push_content(&mut self, packet: Packet) {
+        self.content.push(packet);
+    }
+
+    /// Sets `content` of [Message].
+    ///
+    /// This takes an ownership of `content` in argument.
+    ///
+    /// This is preferred way of setting a content for [Message].
+    pub fn set_content(&mut self, content: Vec<u8>) {
+        self.content = Self::split_to_max_packet_size(content)
+                            .into_iter()
+                            .map(|buffer| Packet::new(PacketKind::Content, buffer))
+                            .collect();
+    }
+
+    /// Sets an `end_data` of [Message].
+    ///
+    /// Takes an ownership of `end_data` given in argument.
+    pub fn set_end_data(&mut self, end_data: Packet) {
+        self.end_data = end_data;
+    }
+}
+
 /// Utils.
 impl Message {
 
     /// Get the number of content packets needed to send whole file.
-    fn n_of_content_packets(file_length: usize) -> usize {
+    fn n_of_content_packets(file_length: usize) -> u32 {
         let n_of_content_packets: usize;
 
-        if file_length % MAX_PACKET_SIZE != 0 {
+        if file_length % MAX_PACKET_SIZE as usize != 0 {
             // Add one more packet for one not full content packet at the end.
-            n_of_content_packets = (file_length as usize / (MAX_PACKET_CONTENT_SIZE)) + 1;
+            n_of_content_packets = (file_length as usize / (MAX_PACKET_CONTENT_SIZE as usize)) + 1;
         } else {
-            n_of_content_packets = file_length as usize / (MAX_PACKET_CONTENT_SIZE);
+            n_of_content_packets = file_length as usize / (MAX_PACKET_CONTENT_SIZE as usize);
         }
 
-        n_of_content_packets
+        n_of_content_packets as u32
     }
 
     /// Change `file_name` in `metadata` from whole [Path] to file name with its extension only.
@@ -842,7 +845,7 @@ impl Message {
         }
 
         // Write to file.
-        if let Err(e) = file.write(&packet.kind_owned().content()?) {
+        if let Err(e) = file.write(&packet.content_owned()) {
             return Err(NetCommsError::new(
                 NetCommsErrorKind::WritingToFileFailed,
                 Some(format!("Could not write to file. ({})", e))));
@@ -854,17 +857,17 @@ impl Message {
     /// Returns a number of packets that will need to be created from given buffer.
     ///
     /// It uses [MAX_PACKET_CONTENT_SIZE] to determine the number.
-    pub fn number_of_packets(content: &Vec<u8>) -> usize {
+    pub fn number_of_packets(content: &Vec<u8>) -> u32 {
 
         let byte_length = content.len();
 
         // Get number of packets by dividing by MAX_PACKET_CONTENT_SIZE.
-        let mut number_of_packets = byte_length / MAX_PACKET_CONTENT_SIZE;  
+        let mut number_of_packets = byte_length / MAX_PACKET_CONTENT_SIZE as usize;  
         // Add one packet if there is any remainder after the division.
-        if byte_length % MAX_PACKET_CONTENT_SIZE != 0 {
+        if byte_length % MAX_PACKET_CONTENT_SIZE as usize != 0 {
             number_of_packets += 1;
         }
-        number_of_packets
+        number_of_packets as u32
     }
 
     /// Splits the given buffer to vector of buffers with size of [MAX_PACKET_CONTENT_SIZE], so
@@ -876,7 +879,7 @@ impl Message {
         // that are collected to single vector. 
         // This is not my work: https://stackoverflow.com/a/67009164. 
         let vectored_content: Vec<Vec<u8>> = buffer.into_iter()
-                                                    .chunks(MAX_PACKET_CONTENT_SIZE)
+                                                    .chunks(MAX_PACKET_CONTENT_SIZE as usize)
                                                     .into_iter()
                                                     .map(|chunk| chunk.collect())
                                                     .collect();

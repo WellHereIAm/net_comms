@@ -8,11 +8,11 @@ use crate::packet::MetaData;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetaDataPretty {
     message_kind: MessageKind,
-    message_length: usize,  
+    message_length: u32,  
     datetime: String,  
-    author_id: usize,   
+    author_id: u32,   
     author_username: String,
-    recipient_id: usize, 
+    recipient_id: u32, 
     recipients: Vec<String>,
     file_name: Option<String>,  
 }

@@ -15,7 +15,7 @@ use crate::config::{UNKNOWN_USER_ID, UNKNOWN_USERNAME};
 /// * `password`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
-    id: usize,
+    id: u32,
     username: String,
     password: String, // This of course needs to be hashed.
 }
@@ -35,7 +35,7 @@ impl Default for User {
 impl User {
 
     /// Creates a new [User].    
-    pub fn new(id: usize, username: String, password: String) -> Self {
+    pub fn new(id: u32, username: String, password: String) -> Self {
         User {
             id,
             username,
@@ -73,7 +73,7 @@ impl User {
     }
     
     /// Returns `users_id`.
-    pub fn id(&self) -> usize {
+    pub fn id(&self) -> u32 {
         self.id
     }
 

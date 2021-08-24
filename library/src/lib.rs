@@ -85,6 +85,61 @@ impl FromBuffer for usize {
     }
 }
 
+impl ToBuffer for u16 {
+    fn to_buff(self) -> Result<Vec<u8>, NetCommsError> {
+        
+        Ok(self.to_be_bytes().to_vec())
+    }
+}
+
+impl FromBuffer for u16 {
+
+    fn from_buff(buff: Vec<u8>) -> Result<u16, NetCommsError> {
+
+        // Check if buffer has valid length(at least 2).
+        if None == buff.get(1) {
+            return Err(NetCommsError::new(
+                NetCommsErrorKind::InvalidBufferSize,
+                Some("Implementation from_buff for usize requires buffer of length of at least 2 bytes.".to_string())))
+        }
+
+        let mut arr = [0_u8; 2];
+        for (index, value) in buff.into_iter().enumerate() {
+            if index == 2 {
+                break;
+            }
+            arr[index] = value;
+        }
+        Ok(u16::from_be_bytes(arr))
+    }
+}
+
+impl ToBuffer for u32 {
+    fn to_buff(self) -> Result<Vec<u8>, NetCommsError> {
+        
+        Ok(self.to_be_bytes().to_vec())
+    }
+}
+
+impl FromBuffer for u32 {
+
+    fn from_buff(buff: Vec<u8>) -> Result<u32, NetCommsError> {
+
+        // Check if buffer has valid length(at least 4).
+        if None == buff.get(3) {
+            return Err(NetCommsError::new(
+                NetCommsErrorKind::InvalidBufferSize,
+                Some("Implementation from_buff for usize requires buffer of length of at least 4 bytes.".to_string())))
+        }
+
+        let mut arr = [0_u8; 4];
+        for (index, value) in buff.into_iter().enumerate() {
+            arr[index] = value;
+        }
+        Ok(u32::from_be_bytes(arr))
+    }
+}
+
 impl ToBuffer for String {
 
     fn to_buff(self) -> Result<Vec<u8>, NetCommsError> {

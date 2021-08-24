@@ -3,19 +3,19 @@
     metadata: (
         message_kind: Text,
         message_length: 3,
-        datetime: "2021-08-24-13-37-47",
+        datetime: "2021-08-24-15-25-11",
         author_id: 0,
         author_username: "man",
-        recipient_id: 3,
+        recipient_id: 2,
         recipients: [
-            "guy",
+            "man",
         ],
         file_name: None,
     ),
-    content: "Hello my old friend, how are you? I`ve been having rough times so I am sorry for not reaching out for so long. Man",
+    content: "Hello.",
     end_data: (
-        size: 10,
-        kind: Content,
+        size: 4,
+        kind: End,
         content: "",
     ),
 )

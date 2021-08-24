@@ -26,6 +26,7 @@ fn get_config_location() -> PathBuf {
 
     loop {
         let location = input("Enter server config location: \n>>> ").unwrap();
+        println!("{}", &location);
         
         match PathBuf::from_str(&location) {
             Ok(path) => {

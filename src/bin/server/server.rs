@@ -64,8 +64,8 @@ impl ServerConfig {
 
 pub struct Server {
    users: Arc<Mutex<HashMap<String, User>>>,
-   ids: Arc<Mutex<Vec<usize>>>,
-   waiting_messages: Arc<Mutex<HashMap<usize, Vec<Message>>>>,
+   ids: Arc<Mutex<Vec<u32>>>,
+   waiting_messages: Arc<Mutex<HashMap<u32, Vec<Message>>>>,
    config: ServerConfig,
 }
 
@@ -150,7 +150,7 @@ impl Server {
             loop {
                 let input = input("").unwrap();
                 // Later handle input.
-                output_t_input.send(Output::FromUserInput(format!("input: {}", input))).unwrap();
+                output_t_input.send(Output::FromUserInput(format!("input: {:?}", input))).unwrap();
             }
         }).unwrap();
 
@@ -241,7 +241,17 @@ impl Server {
                                 _ => {}
                             }
                         },
-                        Err(_) => todo!(),
+                        Err(e) => {
+                            let err_content = format!(indoc!{
+                                "
+                                Failed to receive a Message,
+                                in Server::handle_connection().
+                                error:
+                                {}
+                                "
+                            }, e);
+                            output.send(Output::Error(err_content)).unwrap();
+                        },
                     }
     
                     if let Err(e) = finished.send(true) {
@@ -256,7 +266,7 @@ impl Server {
     }
 
     fn receive_user_to_user_message(message: Message,
-                                    waiting_messages: Arc<Mutex<HashMap<usize, Vec<Message>>>>,
+                                    waiting_messages: Arc<Mutex<HashMap<u32, Vec<Message>>>>,
                                     users: Arc<Mutex<HashMap<String, User>>>,
                                     output: Sender<Output>) -> Vec<String> {
 
@@ -296,9 +306,9 @@ impl Server {
 
     fn receive_request(message: Message,
                        stream: TcpStream, 
-                       waiting_messages: Arc<Mutex<HashMap<usize, Vec<Message>>>>,
+                       waiting_messages: Arc<Mutex<HashMap<u32, Vec<Message>>>>,
                        users: Arc<Mutex<HashMap<String, User>>>,
-                       ids: Arc<Mutex<Vec<usize>>>,
+                       ids: Arc<Mutex<Vec<u32>>>,
                        output: Sender<Output>) {
 
         let author = User::new(message.metadata().author_id(), message.metadata().author_username(), "Dummy".to_string());
@@ -320,7 +330,7 @@ impl Server {
 
     fn user_register(mut stream: TcpStream,
                      users: Arc<Mutex<HashMap<String, User>>>,
-                     ids: Arc<Mutex<Vec<usize>>>,
+                     ids: Arc<Mutex<Vec<u32>>>,
                      user_unchecked: UserUnchecked,
                      output: Sender<Output>) {
 
@@ -363,7 +373,7 @@ impl Server {
                 }
                 drop(ids_guard);
                 
-                let user = User::new(id, username, password); 
+                let user = User::new(id as u32, username, password); 
                 
                 users_guard.insert(user.username().clone(), user.clone());
                 drop(users_guard);
@@ -448,7 +458,7 @@ impl Server {
         }
     }
 
-    fn return_waiting_messages(mut stream: TcpStream, waiting_messages: Arc<Mutex<HashMap<usize, Vec<Message>>>>, author: User,
+    fn return_waiting_messages(mut stream: TcpStream, waiting_messages: Arc<Mutex<HashMap<u32, Vec<Message>>>>, author: User,
                                output: Sender<Output>) {
 
         let mut waiting_messages_guard = match waiting_messages.lock() {

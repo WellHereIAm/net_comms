@@ -28,11 +28,11 @@ use crate::user::User;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetaData {
     message_kind: MessageKind,
-    message_length: usize,  
+    message_length: u32,  
     datetime: Vec<u8>,  
-    author_id: usize,   
+    author_id: u32,   
     author_username: String,
-    recipient_id: usize, 
+    recipient_id: u32, 
     recipients: Vec<String>,
     file_name: Option<String>,  
 }
@@ -76,7 +76,7 @@ impl MetaData {
     /// This method should not return an error.
     pub fn new(content: &Vec<u8>,
            message_kind: MessageKind, author: User,
-           recipient_id: usize, recipients: Vec<String>,
+           recipient_id: u32, recipients: Vec<String>,
            file_name: Option<String>) -> Result<MetaData, NetCommsError> {
 
         // Temporary metadata, to get length of metadata in number of packets.                  
@@ -129,7 +129,7 @@ impl MetaData {
     }
 
     /// Returns `message_length` as number of [packets](super::Packet).
-    pub fn message_length(&self) -> usize {
+    pub fn message_length(&self) -> u32 {
         self.message_length 
     }
 
@@ -165,12 +165,12 @@ impl MetaData {
     }
 
     /// Returns an `author_id`.
-    pub fn author_id(&self) -> usize {
-        self.author_id.clone()
+    pub fn author_id(&self) -> u32 {
+        self.author_id
     }
 
     /// Return a `recipient_id`, if [Message] was sent by client, this returns only [SERVER_ID](crate::config::SERVER_ID).
-    pub fn recipient_id(&self) -> usize {
+    pub fn recipient_id(&self) -> u32 {
         self.recipient_id
     }
 
@@ -185,17 +185,17 @@ impl MetaData {
     }
 
     /// Sets `message_length`.
-    pub fn set_message_length(&mut self, length: usize) {
+    pub fn set_message_length(&mut self, length: u32) {
         self.message_length = length;
     }    
 
     /// Sets [Message] `author_id`.
-    pub fn set_author_id(&mut self, id: usize) {
+    pub fn set_author_id(&mut self, id: u32) {
         self.author_id = id;
     }
 
     /// Sets `recipient_id`.
-    pub fn set_recipient_id(&mut self, recipient_id: usize) {
+    pub fn set_recipient_id(&mut self, recipient_id: u32) {
         self.recipient_id = recipient_id;
     }
 
