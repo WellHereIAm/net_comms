@@ -1,25 +1,32 @@
 use std::collections::HashMap;
-use std::{fs, thread};
-use std::io::Read;
+use std::{fs, io, thread};
+use std::io::{Read, Write};
 use std::net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::{Arc, Mutex, mpsc};
 use std::sync::mpsc::{Receiver, Sender};
 
-use library::config::UNKNOWN_USER_ID;
 use serde::{Serialize, Deserialize};
 use ron::de;
-
+use indoc::indoc;
 
 use library::prelude::*;
+use utils::input;
+
+pub enum Output {
+    Error(String),
+    FromRun(String),
+    FromUserInput(String),   
+}
+
 
 // Why the fuck fields can be accessed inside Server without being public?
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerConfig {
     ip: String,
     port: u16,
-    maximum_active_connections: usize,
+    maximum_active_connections: u16,
     save_location: PathBuf,
 }
 
@@ -57,9 +64,6 @@ pub struct Server {
    users: Arc<Mutex<HashMap<String, User>>>,
    ids: Arc<Mutex<Vec<usize>>>,
    waiting_messages: Arc<Mutex<HashMap<usize, Vec<Message>>>>,
-   number_of_active_connections: Arc<Mutex<usize>>, 
-   connection_handled: Receiver<bool>,
-   connection_handled_sender: Sender<bool>, 
    config: ServerConfig,
 }
 
@@ -70,19 +74,12 @@ impl Server {
         let users = Arc::new(Mutex::new(HashMap::new()));
         let ids = Arc::new(Mutex::new(vec![UNKNOWN_USER_ID + 1]));
         let waiting_messages = Arc::new(Mutex::new(HashMap::new()));
-        let number_of_active_connections = Arc::new(Mutex::new(0));
-
-        let (connection_handled_sender, connection_handled) = mpsc::channel::<bool>();
-
         let config = ServerConfig::new(config_location)?;
 
         let server = Server {
             users, 
             ids,
             waiting_messages,
-            number_of_active_connections,
-            connection_handled,
-            connection_handled_sender,
             config,
         };
 
@@ -98,75 +95,146 @@ impl Server {
         }
     }
 
-    pub fn run(server: Arc<Mutex<Server>>) -> Result<(), NetCommsError> {
+    pub fn run(self) -> Result<(), NetCommsError> {
 
-        println!("Starting server...");
-        
-        let server_clone = Arc::clone(&server);
+        println!("[SERVER]: Starting server...");
 
-        thread::Builder::new().name("listener_thread".to_string()).spawn(move || {
+        let (can_start_t, can_start_r) = mpsc::channel::<bool>(); 
+        let (allowance_t, allowance_r) = mpsc::channel::<bool>(); 
+        let (finished_t, finished_r) = mpsc::channel::<bool>(); 
+        let (output_t, output_r) = mpsc::channel::<Output>();
 
-            let server_guard = server_clone.lock().unwrap();
-            let listener = server_guard.create_listener();
-            drop(server_guard);
 
+        thread::Builder::new().name("output".to_string()).spawn(move || {
+            print!(">>> ");
+            io::stdout().flush().unwrap();
             loop {
-                let server_guard = server_clone.lock().unwrap();
-                match listener.accept() {
-                    Ok((stream, _socket_addr)) => {
-                        Self::handle_connection(&server_guard, stream);
+                match output_r.recv() {
+                    Ok(output) => {
+                        match output {
+                            Output::FromRun(content) => {
+                                if !content.is_empty() {
+                                    println!("\n[SERVER]: {}", content);
+                                    print!(">>> ");
+                                    io::stdout().flush().unwrap();
+                                };
+                            },
+                            Output::Error(content) => {
+                                if !content.is_empty() {
+                                    println!("\n[ERROR]: {}", content);
+                                    print!(">>> ");
+                                    io::stdout().flush().unwrap();
+                                };
+                            },
+                            Output::FromUserInput(content) => {
+                                if content.is_empty() {
+                                    print!(">>> ");
+                                    io::stdout().flush().unwrap();
+                                } else {
+                                    println!("{}", content);
+                                    print!(">>> ");
+                                    io::stdout().flush().unwrap();
+                                };
+                            },
+                        }                        
                     },
                     Err(e) => eprintln!("{}", e),
-                };
-
-                if let Ok(value) = server_guard.connection_handled.try_recv() {
-                    if value {
-                        let mut number_of_active_connections_guard = match server_guard.number_of_active_connections.lock() {
-                            Ok(guard) => guard,
-                            Err(poisoned) => poisoned.into_inner(),
-                        };
-
-                        *number_of_active_connections_guard -= 1;
-                    }
                 }
             }
         }).unwrap();
 
-        let _server = Arc::clone(&server);
+        let output_t_input = output_t.clone();
+        thread::Builder::new().name("input".to_string()).spawn(move|| {
+            loop {
+                let input = input("").unwrap();
+                // Later handle input.
+                output_t_input.send(Output::FromUserInput(format!("input: {}", input))).unwrap();
+            }
+        }).unwrap();
 
+        
+        Server::check_maximum_active_connections(self.config.maximum_active_connections,
+                                                 can_start_r, allowance_t, finished_r);
 
-        println!("Server started.");
+        let listener = self.create_listener();
+
+        let output_t_listener = output_t.clone();
+        thread::Builder::new().name("listener".to_string()).spawn(move || {
+
+            loop {
+                match listener.accept() {
+                    Ok((stream, _socket_addr)) => {
+                        self.handle_connection(stream, can_start_t.clone(), &allowance_r, finished_t.clone(), output_t_listener.clone());
+                    }
+                    Err(e) => eprintln!("{}", e),
+                };
+            }
+        }).unwrap();
+
+        output_t.send(Output::FromRun("ServerStarted.".to_string())).expect("Server could not be started.");
+
         Ok(())
+        
     }
 
-    fn handle_connection(&self, mut stream: TcpStream) {
+    fn check_maximum_active_connections(max: u16, can_start: Receiver<bool>, allowance: Sender<bool>, finished: Receiver<bool>) {
+
+        let mut number_of_active_connections = 0;
+        thread::Builder::new().name("check_maximum_active_connections".to_string()).spawn(move || {
+            loop {
+                match can_start.try_recv() {
+                    Ok(_) => {
+                        if number_of_active_connections < max {
+                            if let Err(e) = allowance.send(true) {
+                                eprintln!("allowance send: {}", e);
+                            }
+                        }
+                    },
+                    Err(_) => {},
+                }
+
+                match finished.try_recv() {
+                    Ok(_) => {
+                        if number_of_active_connections != 0 {
+                            number_of_active_connections -= 1;
+                        }
+                    },
+                    Err(_) => {},
+                }
+            }
+        }).unwrap();
+    }
+    fn handle_connection(&self, mut stream: TcpStream, can_start: Sender<bool>, allowance: &Receiver<bool>, finished: Sender<bool>,
+                         output: Sender<Output>) {
 
         let users = Arc::clone(&self.users);
         let ids = Arc::clone(&self.ids);
         let waiting_messages = Arc::clone(&self.waiting_messages);
         let location = self.config.save_location.clone();
 
-        let mut number_of_active_connections_guard = match self.number_of_active_connections.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-
-        let client_thread_sender = self.connection_handled_sender.clone();
-
         loop {
-            if *number_of_active_connections_guard < self.config.maximum_active_connections {
-                *number_of_active_connections_guard += 1;
-                drop(number_of_active_connections_guard);
-    
-                thread::Builder::new().name("client_thread".to_string()).spawn(move || {
+            if let Err(e) = can_start.send(true) {
+                output.send(Output::Error(format!("Failed to send request to create a new thread.\n{}", e))).unwrap();
+            }
+
+            let can_start_answer = match allowance.recv() {
+                Ok(can_start_sent) => can_start_sent,
+                Err(e) => {
+                    output.send(Output::Error(format!("Failed to receive an answer to request to create a new thread.\n{}", e))).unwrap();
+                    false
+                },
+            };
+
+            if can_start_answer {
+                thread::Builder::new().name("connection".to_string()).spawn(move || {
                     match Message::receive(&mut stream, location.as_path()) {
                         Ok(message) => {
                             match message.kind() {
                                 MessageKind::Text | MessageKind::File => {
-                                    let _non_existent_recipients = Self::receive_user_to_user_message(message, waiting_messages, users);      
+                                    let _ = Self::receive_user_to_user_message(message, waiting_messages, users, output.clone());      
                                 },
                                 MessageKind::Request => {
-                                    Self::receive_request(message, stream, waiting_messages, users, ids);
+                                    Self::receive_request(message, stream, waiting_messages, users, ids, output);
                                 },
                                 _ => {}
                             }
@@ -174,7 +242,7 @@ impl Server {
                         Err(_) => todo!(),
                     }
     
-                    if let Err(e) = client_thread_sender.send(true) {
+                    if let Err(e) = finished.send(true) {
                         eprintln!("{}", e);
                     }
                 }).unwrap(); // !!!!!
@@ -187,7 +255,8 @@ impl Server {
 
     fn receive_user_to_user_message(message: Message,
                                     waiting_messages: Arc<Mutex<HashMap<usize, Vec<Message>>>>,
-                                    users: Arc<Mutex<HashMap<String, User>>>) -> Vec<String> {
+                                    users: Arc<Mutex<HashMap<String, User>>>,
+                                    output: Sender<Output>) -> Vec<String> {
 
         let mut non_existent_recipients = Vec::new();
                             
@@ -218,7 +287,7 @@ impl Server {
         }  
         
         if !non_existent_recipients.is_empty() {
-            eprintln!("non_existent_recipients: {:?}", &non_existent_recipients);
+            output.send(Output::FromRun(format!("Non existent recipients of received message:\n{:?}", &non_existent_recipients))).unwrap();
         }
         non_existent_recipients
     }
@@ -227,20 +296,21 @@ impl Server {
                        stream: TcpStream, 
                        waiting_messages: Arc<Mutex<HashMap<usize, Vec<Message>>>>,
                        users: Arc<Mutex<HashMap<String, User>>>,
-                       ids: Arc<Mutex<Vec<usize>>>) {
+                       ids: Arc<Mutex<Vec<usize>>>,
+                       output: Sender<Output>) {
 
         let author = User::new(message.metadata().author_id(), message.metadata().author_username(), "Dummy".to_string());
         let request = Request::from_ron(&String::from_buff(message.content()).unwrap()).unwrap();
 
         match request {
             Request::Register(user_unchecked) => {
-                Self::user_register(stream, users, ids, user_unchecked);
+                Self::user_register(stream, users, ids, user_unchecked, output);
             },
             Request::Login(user_unchecked) => {
-                Self::user_login(stream, users, user_unchecked);
+                Self::user_login(stream, users, user_unchecked, output);
             },
             Request::GetWaitingMessagesAuto => {
-                Self::return_waiting_messages(stream, waiting_messages, author);
+                Self::return_waiting_messages(stream, waiting_messages, author, output);
             },
             Request::Unknown => todo!(),
         }
@@ -249,7 +319,8 @@ impl Server {
     fn user_register(mut stream: TcpStream,
                      users: Arc<Mutex<HashMap<String, User>>>,
                      ids: Arc<Mutex<Vec<usize>>>,
-                     user_unchecked: UserUnchecked) {
+                     user_unchecked: UserUnchecked,
+                     output: Sender<Output>) {
 
         let username = user_unchecked.username;
         let password = user_unchecked.password;
@@ -265,7 +336,16 @@ impl Server {
 
                 let message = Message::from_server_reply(server_reply).unwrap();
                 if let Err(e) =  message.send(&mut stream) {
-                    eprintln!("{}", e);
+                    let err_content = format!(indoc!{
+                        "
+                        Failed to send an error message:
+                        \"This username already exists.\",
+                        in Server::user_register() , case: user already exist.
+                        error:
+                        {}
+                        "
+                    }, e);
+                    output.send(Output::Error(err_content)).unwrap();
                 }
             },
             None => {
@@ -289,13 +369,22 @@ impl Server {
                 let server_reply = ServerReply::User(user);
                 let message = Message::from_server_reply(server_reply).unwrap();
                 if let Err(e) =  message.send(&mut stream) {
-                    eprintln!("{}", e);
+                    let err_content = format!(indoc!{
+                        "
+                        Failed to send an correct User struct,
+                        in Server::user_register().
+                        error:
+                        {}
+                        "
+                    }, e);
+                    output.send(Output::Error(err_content)).unwrap();
                 }
             },
         }
     }
 
-    fn user_login(mut stream: TcpStream, users: Arc<Mutex<HashMap<String, User>>>, user_unchecked: UserUnchecked) {
+    fn user_login(mut stream: TcpStream, users: Arc<Mutex<HashMap<String, User>>>, user_unchecked: UserUnchecked,
+                  output: Sender<Output>) {
 
         let username = user_unchecked.username;
         let password = user_unchecked.password;
@@ -311,13 +400,30 @@ impl Server {
                     let server_reply = ServerReply::User(user.clone());
                     let message = Message::from_server_reply(server_reply).unwrap();
                     if let Err(e) =  message.send(&mut stream) {
-                        eprintln!("{}", e);
+                        let err_content = format!(indoc!{
+                            "
+                            Failed to send an User struct,
+                            in Server::user_login().
+                            error:
+                            {}
+                            "
+                        }, e);
+                        output.send(Output::Error(err_content)).unwrap();
                     }
                 } else {
                     let server_reply = ServerReply::Error("Incorrect password.".to_string());
                     let message = Message::from_server_reply(server_reply).unwrap();
                     if let Err(e) =  message.send(&mut stream) {
-                        eprintln!("{}", e);
+                        let err_content = format!(indoc!{
+                            "
+                            Failed to send an error message:
+                            \"Incorrect password\"
+                            in Server::user_login().
+                            error:
+                            {}
+                            "
+                        }, e);
+                        output.send(Output::Error(err_content)).unwrap();
                     }
                 }
             },
@@ -325,15 +431,23 @@ impl Server {
                 let server_reply = ServerReply::Error(format!("User with username: {} does not exist", username));
                 let message = Message::from_server_reply(server_reply).unwrap();
                 if let Err(e) =  message.send(&mut stream) {
-                    eprintln!("{}", e);
+                    let err_content = format!(indoc!{
+                        "
+                        Failed to send an error message:
+                        \"User with username: {} does not exist\"
+                        in Server::user_login().
+                        error:
+                        {}
+                        "
+                    }, username, e);
+                    output.send(Output::Error(err_content)).unwrap();
                 }
-            },
+            }
         }
-
-
     }
 
-    fn return_waiting_messages(mut stream: TcpStream, waiting_messages: Arc<Mutex<HashMap<usize, Vec<Message>>>>, author: User) {
+    fn return_waiting_messages(mut stream: TcpStream, waiting_messages: Arc<Mutex<HashMap<usize, Vec<Message>>>>, author: User,
+                               output: Sender<Output>) {
 
         let mut waiting_messages_guard = match waiting_messages.lock() {
             Ok(guard) => guard,
@@ -352,8 +466,32 @@ impl Server {
                     message.set_metadata(metadata);
 
                     match message.metadata().file_name() {
-                        Some(_) => message.send_file(&mut stream).unwrap(),                    
-                        None => message.send(&mut stream).unwrap(),
+                        Some(_) => {
+                            if let Err(e) = message.send_file(&mut stream) {
+                                let err_content = format!(indoc!{
+                                    "
+                                    Failed to send a file,
+                                    in Server::return_waiting_messages().
+                                    error:
+                                    {}
+                                    "
+                                }, e);
+                                output.send(Output::Error(err_content)).unwrap();
+                            }
+                        },               
+                        None => {
+                            if let Err(e) = message.send(&mut stream) {
+                                let err_content = format!(indoc!{
+                                    "
+                                    Failed to send back a message,
+                                    in Server::return_waiting_messages().
+                                    error:
+                                    {}
+                                    "
+                                }, e);
+                                output.send(Output::Error(err_content)).unwrap();
+                            }
+                        },
                     }
                 }
         }

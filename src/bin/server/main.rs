@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
 
 use library::prelude::*;
 
@@ -15,13 +14,11 @@ fn main() -> Result<(), NetCommsError> {
     // D:\\stepa\\Documents\\Rust\\net_comms\\src\\bin\\server\\server_config.ron
     let config_location = get_config_location();
 
-    let server: Arc<Mutex<Server>> = Arc::new(Mutex::new(Server::new(&config_location)?));
+    let server = Server::new(&config_location)?;
+    server.run()?;
 
-    Server::run(server)?;    
-
-    // Controlling the server.
     loop {
-        let _ = input("\n>>> ").unwrap();
+        
     }
 }
 
@@ -31,7 +28,11 @@ fn get_config_location() -> PathBuf {
         let location = input("Enter server config location: \n>>> ").unwrap();
         
         match PathBuf::from_str(&location) {
-            Ok(path) => return path,
+            Ok(path) => {
+                if path.is_file() {
+                    return path
+                }
+            },
             Err(_) => println!("Please enter valid server config location."),
         }
     }    

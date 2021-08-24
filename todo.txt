@@ -24,3 +24,5 @@
     Create ability to start server from backup and to gracefully shut-down server.
 
 9. Change from usize to u32.
+10. ToRon and FromRon traits as it should be possible to have default methods.
+11. Fail to send data to output thread should not panic as does now.
