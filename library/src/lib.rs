@@ -22,6 +22,9 @@ pub mod message;
 /// Module containing [Packet](packet::Packet) and other struct that are used inside it or with it.
 pub mod packet;
 
+/// Module containing `pretty` structs -- struct formatted in human readable form.
+pub mod pretty_structs;
+
 /// Module containing [Request](request::Request), which is used to send requests from client to server.
 pub mod request;
 
@@ -43,6 +46,7 @@ pub mod prelude {
     pub use crate::error::{self, *};
     pub use crate::message::{self, *};
     pub use crate::packet::{self, *};
+    pub use crate::pretty_structs::{self, *};
     pub use crate::request::{self, *};
     pub use crate::ron::{self, *};
     pub use crate::user::{self, *};

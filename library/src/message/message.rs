@@ -46,6 +46,7 @@ pub struct Message {
     end_data: Packet,   // This should never grow to more than one packet.
 }
 
+/// Constructors
 impl Message {
     
     /// Creates a new empty Message.
@@ -258,7 +259,10 @@ impl Message {
 
         Ok(message)  
     }
+}
 
+/// Senders.
+impl Message {
     /// This takes an ownership of self and sends a Message through given [stream](TcpStream).
     ///
     /// This method is used for all [message kinds](MessageKind) except [MessageKind::File]
@@ -426,45 +430,6 @@ impl Message {
         Ok(())        
     }
     
-    /// Get the number of content packets needed to send whole file.
-    fn n_of_content_packets(file_length: usize) -> usize {
-        let n_of_content_packets: usize;
-
-        if file_length % MAX_PACKET_SIZE != 0 {
-            // Add one more packet for one not full content packet at the end.
-            n_of_content_packets = (file_length as usize / (MAX_PACKET_CONTENT_SIZE)) + 1;
-        } else {
-            n_of_content_packets = file_length as usize / (MAX_PACKET_CONTENT_SIZE);
-        }
-
-        n_of_content_packets
-    }
-
-    /// Change `file_name` in `metadata` from whole [Path] to file name with its extension only.
-    fn change_metadata_according_to_file(file: &File, metadata: MetaData) -> Result<MetaData, NetCommsError> {
-
-        let file_length = file.metadata().unwrap().len(); // Could not find in what case this returns an error, will check later if necessary.
-
-        let n_of_content_packets = Self::n_of_content_packets(file_length as usize);
-
-        // This operation is not computationally heavy as there is only transfer of ownership, no cloning.
-        let metadata_buff = metadata.to_buff()?;
-        let n_of_metadata_packets = Self::number_of_packets(&metadata_buff);
-                    
-        let n_of_packets = n_of_metadata_packets + n_of_content_packets + 1;
-
-        let mut metadata = MetaData::from_buff(metadata_buff)?;
-        metadata.set_message_length(n_of_packets);
-
-        // Here is no need for complex error handling as this method is used after the file existence check.
-        let path = metadata.file_name().unwrap();
-        let path = Path::new(&path);
-        let file_name = path.file_name().map(|name| name.to_string_lossy().into_owned());
-
-        metadata.set_file_name(file_name);
-        Ok(metadata)
-    }
-
     /// Sends `content` through [TcpStream]. Used inside [Message::send].
     fn send_content(content: Vec<Packet>, stream: &mut TcpStream) -> Result<(), NetCommsError> {
 
@@ -491,7 +456,10 @@ impl Message {
 
         Ok(())                
     }
+}
 
+/// Receivers
+impl Message {
     /// Receives a Message from given stream.
     ///
     /// # Arguments
@@ -626,7 +594,7 @@ impl Message {
                     location.push("message.ron");
 
                     if let MessageKind::Request = message.kind() {
-                        if let Request::GetWaitingMessagesAuto = Request::from_ron(& String::from_buff(message.clone().content())?)? {
+                        if let Request::GetWaitingMessagesAuto = Request::from_ron(& String::from_buff(message.clone().content_owned())?)? {
                             break;
                         }
                     }
@@ -650,6 +618,167 @@ impl Message {
         Ok(())
     }
 
+    /// Receives a single [Packet] from [TcpStream]. Used inside [Message::receive_metadata] and [Message::receive_content].
+    fn receive_packet(stream: &mut TcpStream) -> Result<Packet, NetCommsError> {
+
+        // Read the size of packet.
+        let mut size_buff = vec![0_u8; 8];
+        if let Err(e) = stream.read_exact(&mut size_buff) {
+            return Err(NetCommsError::new(
+                NetCommsErrorKind::ReadingFromStreamFailed, 
+                Some(format!("Failed to read the size of packet. \n({})", e))));
+        }
+        let size = usize::from_buff(size_buff.clone())?;
+
+        // Read rest of packet.
+        let mut buff = vec![0_u8; size - 8];    // - 8 for size of packet encoded as bytes which already exist.
+        if let Err(e) = stream.read_exact(&mut buff) {
+            return Err(NetCommsError::new(
+                NetCommsErrorKind::ReadingFromStreamFailed, 
+                Some(format!("Failed to read the contents of packet. \n({})", e))));
+        }
+
+        // Connect whole buffer and change name, so it makes more sense.
+        size_buff.extend(buff);
+        let buff = size_buff;
+        
+        // Create and return a packet from buffer.
+        Ok(Packet::from_buff(buff)?)
+    }
+}
+
+/// Setters.
+impl Message {
+    
+    /// Sets a `metadata` of [Message]. Also sets message kind.
+    ///
+    /// Takes an ownership of `metadata` given in argument.
+    pub fn set_metadata(&mut self, metadata: MetaData) {
+
+        self.kind = metadata.message_kind();
+        self.metadata = metadata;
+    }
+
+    /// Adds a new [Packet] to [Message] content.
+    ///
+    /// Takes an ownership of `packet` given in argument. 
+    pub fn push_content(&mut self, packet: Packet) {
+        self.content.push(packet);
+    }
+
+    /// Sets `content` of [Message].
+    ///
+    /// This takes an ownership of `content` in argument.
+    ///
+    /// This is preferred way of setting a content for [Message].
+    pub fn set_content(&mut self, content: Vec<u8>) {
+        self.content = Self::split_to_max_packet_size(content)
+                            .into_iter()
+                            .map(|buffer| Packet::new(PacketKind::new_content(buffer)))
+                            .collect();
+    }
+
+    /// Sets an `end_data` of [Message].
+    ///
+    /// Takes an ownership of `end_data` given in argument.
+    pub fn set_end_data(&mut self, end_data: Packet) {
+        self.end_data = end_data;
+    }
+}
+
+/// Getters.
+impl Message {
+    
+    /// Returns a [MessageKind].
+    ///
+    /// It is a low const operation, so `kind` is cloned.
+    pub fn kind(&self) -> MessageKind {
+        self.kind.clone()
+    }
+
+    /// Returns [Message] `metadata`.
+    ///
+    /// It is usually a low const operation and [Message] is usually needed afterwards, so `kind` is cloned, but owned version exist as well.
+    pub fn metadata(&self) -> MetaData {
+        self.metadata.clone()
+    }
+
+    /// Returns [Message] `metadata`.
+    ///
+    /// This takes an ownership of `self`. and returns owned [MetaData].
+    pub fn metadata_owned(self) -> MetaData {
+        self.metadata
+    }
+
+    /// Returns [Message] `content` in form of one [Vec] of [u8] so [from_buff](crate::buffer::FromBuffer::from_buff)
+    /// can be used on it.
+    ///
+    /// This takes an ownership of `self`.
+    pub fn content_owned(self) ->  Vec<u8> {
+        let mut content: Vec<u8> = Vec::new();
+        for data in self.content.into_iter() {
+            if let PacketKind::Content(_, data) = data.kind_owned() { 
+                content.extend(data);
+            }
+        }
+        content
+    }
+
+    /// Returns [Message] `content` in form of one [Vec] of [Packet].
+    ///
+    /// This takes an ownership of `self`.
+    pub fn content_split(self) -> Vec<Packet> {
+        self.content
+    }
+
+    /// Returns [Message] `end_data`.
+    pub fn end_data(&self) -> Packet {
+        self.end_data.clone()
+    }
+}
+
+/// Utils.
+impl Message {
+
+    /// Get the number of content packets needed to send whole file.
+    fn n_of_content_packets(file_length: usize) -> usize {
+        let n_of_content_packets: usize;
+
+        if file_length % MAX_PACKET_SIZE != 0 {
+            // Add one more packet for one not full content packet at the end.
+            n_of_content_packets = (file_length as usize / (MAX_PACKET_CONTENT_SIZE)) + 1;
+        } else {
+            n_of_content_packets = file_length as usize / (MAX_PACKET_CONTENT_SIZE);
+        }
+
+        n_of_content_packets
+    }
+
+    /// Change `file_name` in `metadata` from whole [Path] to file name with its extension only.
+    fn change_metadata_according_to_file(file: &File, metadata: MetaData) -> Result<MetaData, NetCommsError> {
+
+        let file_length = file.metadata().unwrap().len(); // Could not find in what case this returns an error, will check later if necessary.
+
+        let n_of_content_packets = Self::n_of_content_packets(file_length as usize);
+
+        // This operation is not computationally heavy as there is only transfer of ownership, no cloning.
+        let metadata_buff = metadata.to_buff()?;
+        let n_of_metadata_packets = Self::number_of_packets(&metadata_buff);
+                    
+        let n_of_packets = n_of_metadata_packets + n_of_content_packets + 1;
+
+        let mut metadata = MetaData::from_buff(metadata_buff)?;
+        metadata.set_message_length(n_of_packets);
+
+        // Here is no need for complex error handling as this method is used after the file existence check.
+        let path = metadata.file_name().unwrap();
+        let path = Path::new(&path);
+        let file_name = path.file_name().map(|name| name.to_string_lossy().into_owned());
+
+        metadata.set_file_name(file_name);
+        Ok(metadata)
+    }
+
     /// Creates a file location from `id` and [DateTime<Utc>] inside [Message] `metadata`.
     /// * Directory for file will be named in format: `id-year-month-day-hour-minute-second`
     ///
@@ -665,28 +794,12 @@ impl Message {
             MessageKind::SeverReply => path.push("server_replies"),
             _ => path.push("other"),
         }
-        path.push(message.datetime_as_string());
+        path.push(message.metadata.datetime_as_string());
 
         path
     }
 
-    /// Returns a [DateTime<Utc>] as [String] in format: `year-month-day-hour-minute-second`.
-    pub fn datetime_as_string(&self) -> String {
-        
-        let mut datetime_str = String::new();
-        // This should not fail, so unwrap can be used.
-        let datetime = self.metadata().datetime().unwrap().naive_utc();
-        let date = datetime.date().to_string();
-        let time = datetime.time().to_string();
-        datetime_str.push_str(&date);
-        datetime_str.push('-');
-        datetime_str.push_str(&time);
-        let datetime_str = datetime_str.replace(":", "-");
-
-        datetime_str
-    }
-
-    /// Saves a file on given `location`.
+    /// Saves a file packet on given `location`.
     fn save_file(message: &mut Message, packet: Packet, location: &Path) -> Result<(), NetCommsError> {
 
         let mut file: File;                    
@@ -736,111 +849,6 @@ impl Message {
         }    
 
         Ok(())
-    }
-
-    /// Receives a single [Packet] from [TcpStream]. Used inside [Message::receive_metadata] and [Message::receive_content].
-    fn receive_packet(stream: &mut TcpStream) -> Result<Packet, NetCommsError> {
-
-        // Read the size of packet.
-        let mut size_buff = vec![0_u8; 8];
-        if let Err(e) = stream.read_exact(&mut size_buff) {
-            return Err(NetCommsError::new(
-                NetCommsErrorKind::ReadingFromStreamFailed, 
-                Some(format!("Failed to read the size of packet. \n({})", e))));
-        }
-        let size = usize::from_buff(size_buff.clone())?;
-
-        // Read rest of packet.
-        let mut buff = vec![0_u8; size - 8];    // - 8 for size of packet encoded as bytes which already exist.
-        if let Err(e) = stream.read_exact(&mut buff) {
-            return Err(NetCommsError::new(
-                NetCommsErrorKind::ReadingFromStreamFailed, 
-                Some(format!("Failed to read the contents of packet. \n({})", e))));
-        }
-
-        // Connect whole buffer and change name, so it makes more sense.
-        size_buff.extend(buff);
-        let buff = size_buff;
-        
-        // Create and return a packet from buffer.
-        Ok(Packet::from_buff(buff)?)
-    }
-
-    /// Sets a `metadata` of [Message]. Also sets message kind.
-    ///
-    /// Takes an ownership of `metadata` given in argument.
-    pub fn set_metadata(&mut self, metadata: MetaData) {
-
-        self.kind = metadata.message_kind();
-        self.metadata = metadata;
-    }
-
-    /// Adds a new [Packet] to [Message] content.
-    ///
-    /// Takes an ownership of `packet` given in argument. 
-    pub fn push_content(&mut self, packet: Packet) {
-        self.content.push(packet);
-    }
-
-    /// Sets `content` of [Message].
-    ///
-    /// This takes an ownership of `content` in argument.
-    ///
-    /// This is preferred way of setting a content for [Message].
-    pub fn set_content(&mut self, content: Vec<u8>) {
-        self.content = Self::split_to_max_packet_size(content)
-                            .into_iter()
-                            .map(|buffer| Packet::new(PacketKind::new_content(buffer)))
-                            .collect();
-    }
-
-    /// Sets an `end_data` of [Message].
-    ///
-    /// Takes an ownership of `end_data` given in argument.
-    pub fn set_end_data(&mut self, end_data: Packet) {
-        self.end_data = end_data;
-    }
-
-    /// Returns a [MessageKind].
-    ///
-    /// It is a low const operation, so `kind` is cloned.
-    pub fn kind(&self) -> MessageKind {
-        self.kind.clone()
-    }
-
-    /// Returns [Message] `metadata`.
-    ///
-    /// It is usually a low const operation and [Message] is usually needed afterwards, so `kind` is cloned, but owned version exist as well.
-    pub fn metadata(&self) -> MetaData {
-        self.metadata.clone()
-    }
-
-    /// Returns [Message] `metadata`.
-    ///
-    /// This takes an ownership of `self`. and returns owned [MetaData].
-    pub fn metadata_owned(self) -> MetaData {
-        self.metadata
-    }
-
-    /// Returns [Message] `content` in form of one [Vec] of [u8] so [from_buff](crate::buffer::FromBuffer::from_buff)
-    /// can be used on it.
-    ///
-    /// This takes an ownership of `self`.
-    pub fn content(self) ->  Vec<u8> {
-        let mut content: Vec<u8> = Vec::new();
-        for data in self.content.into_iter() {
-            if let PacketKind::Content(_, data) = data.kind_owned() { 
-                content.extend(data);
-            }
-        }
-        content
-    }
-
-    /// Returns [Message] `content` in form of one [Vec] of [Packet].
-    ///
-    /// This takes an ownership of `self`.
-    pub fn content_split(self) -> Vec<Packet> {
-        self.content
     }
 
     /// Returns a number of packets that will need to be created from given buffer.

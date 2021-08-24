@@ -27,4 +27,7 @@
 11. Fail to send data to output thread should not panic as does now.
 12. Documentation 
     Re-do ron module
+    Message multiple implementations.
+
 13. Create custom parsers for struct sent through network.
+14. Look into reworking Packet and PacketKind to format of PacketPretty.

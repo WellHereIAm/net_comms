@@ -302,7 +302,7 @@ impl Server {
                        output: Sender<Output>) {
 
         let author = User::new(message.metadata().author_id(), message.metadata().author_username(), "Dummy".to_string());
-        let request = Request::from_ron(&String::from_buff(message.content()).unwrap()).unwrap();
+        let request = Request::from_ron(&String::from_buff(message.content_owned()).unwrap()).unwrap();
 
         match request {
             Request::Register(user_unchecked) => {

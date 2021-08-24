@@ -143,6 +143,22 @@ impl MetaData {
         Ok(DateTime::from_buff(self.datetime.clone())?)
     }
 
+    /// Returns a [DateTime<Utc>] as [String] in format: `year-month-day-hour-minute-second`.
+    pub fn datetime_as_string(&self) -> String {
+        
+        let mut datetime_str = String::new();
+        // This should not fail, so unwrap can be used.
+        let datetime = self.datetime().unwrap().naive_utc();
+        let date = datetime.date().to_string();
+        let time = datetime.time().to_string();
+        datetime_str.push_str(&date);
+        datetime_str.push('-');
+        datetime_str.push_str(&time);
+        let datetime_str = datetime_str.replace(":", "-");
+
+        datetime_str
+    }
+
     /// Returns an `author_username`.
     pub fn author_username(&self) -> String {
         self.author_username.clone()
@@ -154,7 +170,7 @@ impl MetaData {
     }
 
     /// Return a `recipient_id`, if [Message] was sent by client, this returns only [SERVER_ID](crate::config::SERVER_ID).
-    pub fn recipient_id(&mut self) -> usize {
+    pub fn recipient_id(&self) -> usize {
         self.recipient_id
     }
 
@@ -192,6 +208,8 @@ impl MetaData {
     pub fn set_file_name(&mut self, name: Option<String>) {
         self.file_name = name;
     }
+
+
 
     /// Internal method used in [MetaData::new] and [MetaData::new_empty] to get current [[DateTime<Utc>]].
     fn current_datetime() -> DateTime<Utc> {

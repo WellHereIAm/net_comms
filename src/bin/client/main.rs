@@ -1,3 +1,5 @@
+use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
 use std::thread::JoinHandle;
@@ -58,7 +60,7 @@ fn get_user(user: &User) -> Result<User, NetCommsError> {
             let msg = Message::receive(&mut stream, location)?;
             match msg.kind() {
                 MessageKind::SeverReply => {
-                    let server_reply = ServerReply::from_ron(&String::from_buff(msg.content())?)?;
+                    let server_reply = ServerReply::from_ron(&String::from_buff(msg.content_owned())?)?;
                     if let ServerReply::User(user) = server_reply {
                         return Ok(user);
                     } else {
@@ -91,16 +93,22 @@ fn get_waiting_messages(user: User, socket: String, _mpsc_transmitter: Sender<Me
                         let location = Path::new("D:\\stepa\\Documents\\Rust\\net_comms\\client_logs");
                         match Message::receive(&mut stream, location) {
                             Ok(message) => {
+
+                                let message_pretty = MessagePretty::from_message(&message);
+                                let mut file = fs::File::create("received_message.ron").unwrap();
+                                file.write_all(&message_pretty.to_ron_pretty(None).unwrap().to_buff().unwrap()).unwrap();
+
+
                                 // Why use multiple statements, when I can use one :D
                                 println!("{author} [{datetime}]: {content}",
                                     author = message.metadata().author_username(),
-                                    datetime = message.datetime_as_string(),
+                                    datetime = message.metadata().datetime_as_string(),
                                     content = match message.kind() {
                                         MessageKind::File => format!("Received a file {name} at {location}",
                                                                         name = PathBuf::from(message.metadata().file_name().unwrap()).file_name().unwrap().to_string_lossy(),
                                                                         location = PathBuf::from(message.metadata().file_name().unwrap()).to_string_lossy()
                                                                     ),
-                                        _ => String::from_buff(message.content()).unwrap()                                                        
+                                        _ => String::from_buff(message.content_owned()).unwrap()                                                        
                                     }) 
                             }
                             Err(_) => break,
