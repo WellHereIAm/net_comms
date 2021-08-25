@@ -89,50 +89,6 @@ impl Message {
         })
     }
 
-    /// Creates a new [Message] from [Command].
-    ///
-    /// # Arguments
-    /// 
-    /// `command` -- [Command] that should have all information necessary to create a [Message].
-    /// # Examples
-    /// 
-    /// ```
-    /// let username = "Francis".to_string();
-    /// let password = "superstrongpassword".to_string();
-    /// let user_unchecked = UserUnchecked {username, password};
-    /// let command = Command::Register(user_unchecked, User::default());
-    /// 
-    /// let message = Message::from_command(command).unwrap();
-    /// ```
-    ///
-    /// # Errors
-    ///
-    /// * This method will return an [NetCommsError] with kind [NetCommsErrorKind::UnknownCommand]
-    /// if the given [Command] is not yet supported. Supported commands are [Command::Send], [Command::Register],
-    /// [Command::Login].
-    /// * Can also return other [NetCommsError] when serializing requests or other structs, or when using [to_buff](crate::buffer::ToBuffer::to_buff)
-    /// on some types.
-    pub fn from_command(command: Command) -> Result<Self, NetCommsError> {
-
-        // As commands can be created only by client or in client like fashion, recipient_id will always be SERVER_ID.
-        match command {
-            Command::Send(message_kind, author, recipients, content, file_name) => {
-                return Self::from_send(message_kind, author, recipients, content, file_name);    
-            }
-            Command::Register(user_unchecked, author) => {
-                return Self::from_register(user_unchecked, author);
-            }
-            Command::Login(user_unchecked, author) => {
-                return Self::from_login(user_unchecked, author);
-            }
-            _ => {
-                return Err(NetCommsError::new(
-                    NetCommsErrorKind::UnknownCommand,
-                    Some("Message::from_command() failed to create a message from given command.".to_string())));
-            }
-        }
-    }
-
     pub fn from_server_reply(server_reply: ServerReply) -> Result<Self, NetCommsError> {
 
         let mut message = Self::new().unwrap();
@@ -151,72 +107,6 @@ impl Message {
         message.set_end_data(end_data);
 
         Ok(message)
-    }
-
-    /// Creates a [Message] from [Command::Send]. Used inside [Message::from_command].
-    fn from_send(message_kind: MessageKind,
-                 author: User, recipients: Vec<String>,
-                 content: Vec<u8>, file_name: Option<String>) -> Result<Self, NetCommsError> {
-
-        let mut message = Self::new()?;
-
-        let metadata = MetaData::new(&content, message_kind, author, SERVER_ID, recipients, file_name)?;
-        message.set_metadata(metadata);
-
-        message.set_content(content);
-
-        let end_data = Packet::new(PacketKind::End, Vec::new());
-        message.set_end_data(end_data);
-
-        Ok(message)    
-    }
-
-    /// Creates a [Message] from [Command::Register]. Used inside [Message::from_command].
-    fn from_register(user_unchecked: UserUnchecked, author: User) -> Result<Self, NetCommsError> {
-
-        let mut message = Self::new()?;
-
-        let request = Request::Register(user_unchecked);
-        let content = request.to_ron()?.to_buff()?;
-
-        // Recipient of Request will always be a server.
-        let message_kind = MessageKind::Request;
-        let recipients = vec![SERVER_USERNAME.to_string().clone()];
-        let file_name = None;
-
-        let metadata = MetaData::new(&content, message_kind, author, SERVER_ID, recipients, file_name)?;
-        message.set_metadata(metadata);
-
-        message.set_content(content);
-
-        let end_data = Packet::new(PacketKind::End, Vec::new());
-        message.set_end_data(end_data);
-
-        Ok(message)  
-    }
-
-    /// Creates a [Message] from [Command::Login]. Used inside [Message::from_command].
-    fn from_login(user_unchecked: UserUnchecked, author: User) -> Result<Self, NetCommsError> {
-
-        let mut message = Self::new()?;
-
-        let request = Request::Login(user_unchecked);
-        let content = request.to_ron()?.to_buff()?;
-
-        // Recipient of Request will always be a server.
-        let message_kind = MessageKind::Request;
-        let recipients = vec![SERVER_USERNAME.to_string().clone()];
-        let file_name = None;
-
-        let metadata = MetaData::new(&content, message_kind, author, SERVER_ID, recipients, file_name)?;
-        message.set_metadata(metadata);
-
-        message.set_content(content);
-
-        let end_data = Packet::new(PacketKind::End, Vec::new());
-        message.set_end_data(end_data);
-
-        Ok(message)  
     }
 
     /// Creates a [Message] from [Request].

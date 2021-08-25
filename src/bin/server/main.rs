@@ -3,8 +3,8 @@ use std::str::FromStr;
 
 use library::prelude::*;
 
-mod users;
 mod server;
+mod message;
 use server::Server;
 use utils::input;
 

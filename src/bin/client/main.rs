@@ -7,9 +7,19 @@ use std::time::Duration;
 use std::{net::TcpStream, thread};
 use std::sync::mpsc;
 
-extern crate library;
-use library::prelude::*;
+use library::buffer::{FromBuffer, ToBuffer};
+use library::error::NetCommsError;
+use library::config::{ADDR, PORT};
+use library::message::{Message, MessageKind, ServerReply, ToMessage};
+use library::ron::ToRon;
+use library::pretty_structs::MessagePretty;
+use library::user::User;
 
+mod command;
+use command::CommandRaw;
+use shared::RequestRaw;
+
+mod message;
 mod client;
 
 
@@ -19,20 +29,20 @@ fn main() -> Result<(), NetCommsError> {
     let socket = format!("{}:{}", ADDR, PORT);
     let user = get_user(&User::default())?;
     let (waiting_messages_transmitter, _waiting_messages_receiver) = mpsc::channel::<Message>();
-    let _get_waiting_messages_handle = get_waiting_messages(user.clone(), socket.clone(), waiting_messages_transmitter);
+    let _ = get_waiting_messages(user.clone(), socket.clone(), waiting_messages_transmitter);
 
     loop {
         let cmd_raw = CommandRaw::get(Some("send <(recipient_1, recipient_2, ..., recipient_n)> <content> \n"));
         let cmd = cmd_raw.process(&user).unwrap();
-        let msg = Message::from_command(cmd).unwrap();
+        let message = cmd.to_message()?;
 
 
         match TcpStream::connect(&socket) {
             Ok(mut stream) => {
-                if let Some(_) = msg.metadata().file_name() {
-                    msg.send_file(&mut stream)?;
+                if let Some(_) = message.metadata().file_name() {
+                    message.send_file(&mut stream)?;
                 } else {
-                    msg.send(&mut stream)?;
+                    message.send(&mut stream)?;
                 }
             },            
             Err(e) => {
@@ -48,9 +58,9 @@ fn get_user(user: &User) -> Result<User, NetCommsError> {
     let socket = format!("{}:{}", ADDR, PORT);
     // Get user by login or register. Only register works now.
     let user = user.clone();
-    let cmd_raw = CommandRaw::get(Some("register <username> <password> <password>\nlogin <username> <password>\n".to_string()));
+    let cmd_raw = command::CommandRaw::get(Some("register <username> <password> <password>\nlogin <username> <password>\n".to_string()));
     let cmd = cmd_raw.process(&user)?;
-    let request = Message::from_command(cmd)?;
+    let request = cmd.to_message()?;
 
 
     let location = Path::new("D:\\stepa\\Documents\\Rust\\net_comms\\client_logs");
@@ -83,8 +93,8 @@ fn get_waiting_messages(user: User, socket: String, _mpsc_transmitter: Sender<Me
 
         loop {
             // Need to solve error handling. Maybe another mpsc channel?
-            let request = Request::GetWaitingMessagesAuto;
-            let message = Message::from_request(request, user.clone()).unwrap();
+            let request = RequestRaw::GetWaitingMessagesAuto(user.clone());
+            let message = request.to_message().unwrap();
 
             match TcpStream::connect(&socket) {
                 Ok(mut stream) => {

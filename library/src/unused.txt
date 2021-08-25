@@ -1,0 +1,65 @@
+ /// Creates a [Message] from [Command::Send]. Used inside [Message::from_command].
+    fn from_send(message_kind: MessageKind,
+                 author: User, recipients: Vec<String>,
+                 content: Vec<u8>, file_name: Option<String>) -> Result<Self, NetCommsError> {
+
+        let mut message = Self::new()?;
+
+        let metadata = MetaData::new(&content, message_kind, author, SERVER_ID, recipients, file_name)?;
+        message.set_metadata(metadata);
+
+        message.set_content(content);
+
+        let end_data = Packet::new(PacketKind::End, Vec::new());
+        message.set_end_data(end_data);
+
+        Ok(message)    
+    }
+
+    /// Creates a [Message] from [Command::Register]. Used inside [Message::from_command].
+    fn from_register(user_unchecked: UserUnchecked, author: User) -> Result<Self, NetCommsError> {
+
+        let mut message = Self::new()?;
+
+        let request = Request::Register(user_unchecked);
+        let content = request.to_ron()?.to_buff()?;
+
+        // Recipient of Request will always be a server.
+        let message_kind = MessageKind::Request;
+        let recipients = vec![SERVER_USERNAME.to_string().clone()];
+        let file_name = None;
+
+        let metadata = MetaData::new(&content, message_kind, author, SERVER_ID, recipients, file_name)?;
+        message.set_metadata(metadata);
+
+        message.set_content(content);
+
+        let end_data = Packet::new(PacketKind::End, Vec::new());
+        message.set_end_data(end_data);
+
+        Ok(message)  
+    }
+
+    /// Creates a [Message] from [Command::Login]. Used inside [Message::from_command].
+    fn from_login(user_unchecked: UserUnchecked, author: User) -> Result<Self, NetCommsError> {
+
+        let mut message = Self::new()?;
+
+        let request = Request::Login(user_unchecked);
+        let content = request.to_ron()?.to_buff()?;
+
+        // Recipient of Request will always be a server.
+        let message_kind = MessageKind::Request;
+        let recipients = vec![SERVER_USERNAME.to_string().clone()];
+        let file_name = None;
+
+        let metadata = MetaData::new(&content, message_kind, author, SERVER_ID, recipients, file_name)?;
+        message.set_metadata(metadata);
+
+        message.set_content(content);
+
+        let end_data = Packet::new(PacketKind::End, Vec::new());
+        message.set_end_data(end_data);
+
+        Ok(message)  
+    }
