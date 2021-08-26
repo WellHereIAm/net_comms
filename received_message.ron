@@ -3,12 +3,12 @@
     metadata: (
         message_kind: Text,
         message_length: 3,
-        datetime: "2021-08-24-15-25-11",
+        datetime: "2021-08-26-17-14-51",
         author_id: 0,
-        author_username: "man",
+        author_username: "Štěpán",
         recipient_id: 2,
         recipients: [
-            "man",
+            "Tomáš",
         ],
         file_name: None,
     ),
