@@ -18,6 +18,7 @@ pub const PACKET_DESCRIPTION_SIZE: u16 = 4;
 /// Minimum value is 5 bytes, 2 for packet `size`([u16]), 2 for packet [`kind`](PacketKind), and at least 1 for [`content`](Vec). 
 /// It is a `mutable` statics so it can be changed for specific needs of user of this framework byt since it is
 /// only a [u16] it is capped by [u16::MAX].
+/// This also should be declared only once at the start of an application, or even better in content.
 pub static mut MAX_PACKET_SIZE: u16 = 1024;
 
 /// Maximum amount of bytes that a [Packet] can use for its content, its lower than [MAX_PACKET_SIZE] by [PACKET_DESCRIPTION_SIZE].
@@ -183,7 +184,7 @@ impl Packet {
                                                     .into_iter()
                                                     .map(|chunk| chunk.collect())
                                                     .collect();
-
+     
         vectored_content
     }
     
@@ -207,5 +208,12 @@ impl Packet {
     /// Consumes `self` and returns `content`.
     pub fn content_move(self) -> Vec<u8> {
         self.content
+    }
+
+    /// Maximum amount of bytes that a [Packet] can use for its content, its lower than [MAX_PACKET_SIZE] by [PACKET_DESCRIPTION_SIZE].
+    ///
+    /// It is an [unsafe] operation since it does access a [mutable](mut) [static]
+    pub fn max_content_size() -> u16 {
+        unsafe { MAX_PACKET_SIZE - PACKET_DESCRIPTION_SIZE }
     }
 }
