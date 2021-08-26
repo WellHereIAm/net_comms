@@ -10,3 +10,10 @@ impl IntoBytes for Vec<u8> {
         Bytes::from_vec(self)
     }
 }
+
+impl IntoBytes for String {
+    
+    fn into_bytes(self) -> Bytes {
+        Bytes::from_vec(self.as_bytes().to_vec())
+    }
+}
