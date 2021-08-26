@@ -6,7 +6,7 @@ use serde::Serialize;
 use crate::error::{NetCommsError, NetCommsErrorKind};
 
 /// Trait with default methods that allow implementors parse them to [RON](ron) format.
-pub trait ToRon
+pub trait IntoRon
 where 
     Self: Serialize {
     
@@ -14,7 +14,7 @@ where
     ///
     /// # Errors
     /// * Will return [NetCommsError] with kind [NetCommsErrorKind::SerializingFailed] if it fails to serialize this implementor.
-    fn to_ron(&self) -> Result<String, NetCommsError> {
+    fn into_ron(&self) -> Result<String, NetCommsError> {
 
         match ser::to_string(&self) {
             Ok(serialized) => Ok(serialized),
@@ -30,7 +30,7 @@ where
     ///
     /// # Errors
     /// * Will return [NetCommsError] with kind [NetCommsErrorKind::SerializingFailed] if it fails to serialize implementor.
-    fn to_ron_pretty(&self, config: Option<PrettyConfig>) -> Result<String, NetCommsError> {
+    fn into_ron_pretty(&self, config: Option<PrettyConfig>) -> Result<String, NetCommsError> {
         
         let config = match config {
             Some(config) => config,

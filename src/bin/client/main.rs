@@ -7,14 +7,15 @@ use std::time::Duration;
 use std::{net::TcpStream, thread};
 use std::sync::mpsc;
 
-use library::buffer::{FromBuffer, ToBuffer};
+use library::buffer::{FromBuffer, IntoBuffer};
 use library::error::NetCommsError;
 use library::config::{ADDR, PORT};
-use library::message::{Message, MessageKind, ServerReply, ToMessage};
-use library::ron::ToRon;
+use library::message::{Message, ServerReply, IntoMessage};
+use library::ron::IntoRon;
 use library::pretty_structs::MessagePretty;
 use library::user::User;
 
+/// Module used to get and process user input through commands.
 mod command;
 use command::CommandRaw;
 use shared::RequestRaw;
@@ -34,7 +35,7 @@ fn main() -> Result<(), NetCommsError> {
     loop {
         let cmd_raw = CommandRaw::get(Some("send <(recipient_1, recipient_2, ..., recipient_n)> <content> \n"));
         let cmd = cmd_raw.process(&user).unwrap();
-        let message = cmd.to_message()?;
+        let message = cmd.into_message()?;
 
 
         match TcpStream::connect(&socket) {
@@ -60,7 +61,7 @@ fn get_user(user: &User) -> Result<User, NetCommsError> {
     let user = user.clone();
     let cmd_raw = command::CommandRaw::get(Some("register <username> <password> <password>\nlogin <username> <password>\n".to_string()));
     let cmd = cmd_raw.process(&user)?;
-    let request = cmd.to_message()?;
+    let request = cmd.into_message()?;
 
 
     let location = Path::new("D:\\stepa\\Documents\\Rust\\net_comms\\client_logs");
@@ -94,7 +95,7 @@ fn get_waiting_messages(user: User, socket: String, _mpsc_transmitter: Sender<Me
         loop {
             // Need to solve error handling. Maybe another mpsc channel?
             let request = RequestRaw::GetWaitingMessagesAuto(user.clone());
-            let message = request.to_message().unwrap();
+            let message = request.into_message().unwrap();
 
             match TcpStream::connect(&socket) {
                 Ok(mut stream) => {
@@ -106,7 +107,7 @@ fn get_waiting_messages(user: User, socket: String, _mpsc_transmitter: Sender<Me
 
                                 let message_pretty = MessagePretty::from_message(&message);
                                 let mut file = fs::File::create("received_message.ron").unwrap();
-                                file.write_all(&message_pretty.to_ron_pretty(None).unwrap().to_buff().unwrap()).unwrap();
+                                file.write_all(&message_pretty.into_ron_pretty(None).unwrap().into_buff().unwrap()).unwrap();
 
 
                                 // Why use multiple statements, when I can use one :D

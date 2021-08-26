@@ -15,10 +15,9 @@ path = "src\\shared\\lib.rs"
 [dependencies]
 library = {path = "library"}
 
-
 utils = {git = "https://github.com/WellHereIAm/utils.git", branch = "main"}
 
-# Those are here only for debugging purposes.
+chrono = "0.4.19"
 serde = { version = "1.0", features = ["derive"] }
 ron = "*"
 indoc = "1.0.3"

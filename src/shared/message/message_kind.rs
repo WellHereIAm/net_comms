@@ -1,32 +1,29 @@
 use serde::{Serialize, Deserialize};
 
-use crate::buffer::{ToBuffer, FromBuffer};
-use crate::error::{NetCommsError, NetCommsErrorKind};
+use library::message::MessageKindType;
+use library::buffer::{IntoBuffer, FromBuffer};
+use library::error::{NetCommsError, NetCommsErrorKind};
+use library::ron::{FromRon, IntoRon};
 
 
-/// Holds a kind of [Message](super::Message).
-///
-/// When sent it is stored inside [Message](super::Message) `metadata`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MessageKind {
-    /// Empty struct, usually used only while creating new [Message](super::Message) using [Message::new](super::Message::new).
     Empty,
-    /// Request from client.
     Request,
-    /// Text message sent from one user to another.
     Text,
-    /// File message sent from one user to another.
     File,
-    /// Reply from server to client.
     SeverReply,
-    /// Used in case if [Message](super::Message) fails to recognize a [MessageKind].
     Unknown,
 }
 
-impl ToBuffer for MessageKind {
+impl MessageKindType for MessageKind {}
 
-    /// This takes an ownership of self.
-    fn to_buff(self) -> Result<Vec<u8>, NetCommsError> {
+impl FromRon for MessageKind {}
+impl IntoRon for MessageKind {}
+
+impl IntoBuffer for MessageKind {
+
+    fn into_buff(self) -> Result<Vec<u8>, NetCommsError> {
 
         let msg_kind = match self {
             MessageKind::Empty => [0_u8, 0_u8],

@@ -1,8 +1,8 @@
 use serde::{Serialize, Deserialize};
 
-use crate::buffer::{ToBuffer, FromBuffer};
+use crate::buffer::{IntoBuffer, FromBuffer};
 use crate::error::{NetCommsError, NetCommsErrorKind};
-use crate::ron::{ToRon, FromRon};
+use crate::ron::{IntoRon, FromRon};
 
 use PacketKind::*;
 
@@ -27,17 +27,17 @@ pub enum PacketKind {
     /// Used to signalize end of the [Message](crate::message::Message)
     End, 
 
-    /// Used in case if [Packet](super::Packet) fails to recognize a [PacketKind].
+    /// Used in case if [PacketKind] is not recognized.
     Unknown,
 }
 
-impl ToRon for PacketKind {}
+impl IntoRon for PacketKind {}
 impl FromRon<'_> for PacketKind {}
 
-impl ToBuffer for PacketKind {
+impl IntoBuffer for PacketKind {
 
     /// This method takes an ownership of self.
-    fn to_buff(self) -> Result<Vec<u8>, NetCommsError> {
+    fn into_buff(self) -> Result<Vec<u8>, NetCommsError> {
 
         let mut buff: Vec<u8> = Vec::new();
 

@@ -3,7 +3,7 @@
     metadata: (
         message_kind: Text,
         message_length: 3,
-        datetime: "2021-08-25-11-36-37",
+        datetime: "2021-08-25-11-51-06",
         author_id: 0,
         author_username: "man",
         recipient_id: 2,
@@ -12,7 +12,7 @@
         ],
         file_name: None,
     ),
-    content: "Hello there, how are you?",
+    content: "Hi.",
     end_data: (
         size: 4,
         kind: End,

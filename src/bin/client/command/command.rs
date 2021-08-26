@@ -1,10 +1,10 @@
-use library::buffer::ToBuffer;
-use library::message::{ToMessage, Message, MessageKind};
+use library::buffer::IntoBuffer;
+use library::message::{IntoMessage, Message, MessageKind};
 use library::config::{SERVER_ID, SERVER_USERNAME};
 use library::packet::{MetaData, Packet, PacketKind};
 use library::user::{User, UserUnchecked};
 use library::error::{NetCommsError, NetCommsErrorKind};
-use library::ron::ToRon;
+use library::ron::IntoRon;
 
 use shared::Request;
 
@@ -36,9 +36,9 @@ pub enum Command {
     Unknown
 }
 
-impl ToMessage for Command {
+impl IntoMessage for Command {
     
-    fn to_message(self) -> Result<Message, library::prelude::NetCommsError> {
+    fn into_message(self) -> Result<Message, library::prelude::NetCommsError> {
         match self {
             Command::Send(message_kind, author, recipients, content, file_name) => {
                 return from_send(message_kind, author, recipients, content, file_name);    
@@ -82,7 +82,7 @@ fn from_register(user_unchecked: UserUnchecked, author: User) -> Result<Message,
     let mut message = Message::new()?;
 
     let request = Request::Register(user_unchecked);
-    let content = request.to_ron()?.to_buff()?;
+    let content = request.into_ron()?.into_buff()?;
 
     // Recipient of Request will always be a server.
     let message_kind = MessageKind::Request;
@@ -106,7 +106,7 @@ fn from_login(user_unchecked: UserUnchecked, author: User) -> Result<Message, Ne
     let mut message = Message::new()?;
 
     let request = Request::Login(user_unchecked);
-    let content = request.to_ron()?.to_buff()?;
+    let content = request.into_ron()?.into_buff()?;
 
     // Recipient of Request will always be a server.
     let message_kind = MessageKind::Request;

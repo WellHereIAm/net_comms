@@ -1,12 +1,12 @@
 use serde::{Serialize, Deserialize};
 
-use library::ron::{ToRon, FromRon};
+use library::ron::{IntoRon, FromRon};
 use library::user::UserUnchecked;
-use library::message::{Message, MessageKind, ToMessage};
+use library::message::{Message, MessageKind, IntoMessage};
 use library::packet::{MetaData, Packet, PacketKind};
 use library::error::NetCommsError;
 use library::user::User;
-use library::buffer::ToBuffer;
+use library::buffer::IntoBuffer;
 use library::config::{SERVER_USERNAME, SERVER_ID};
 
 
@@ -26,7 +26,7 @@ pub enum Request {
     Unknown,    
 }
 
-impl ToRon for Request {}
+impl IntoRon for Request {}
 impl FromRon<'_> for Request {}
 
 pub enum RequestRaw {
@@ -43,9 +43,9 @@ pub enum RequestRaw {
     Unknown(User),    
 }
 
-impl ToMessage for RequestRaw {
+impl IntoMessage for RequestRaw {
     
-    fn to_message(self) -> Result<Message, NetCommsError> {
+    fn into_message(self) -> Result<Message, NetCommsError> {
 
         let (request, author) = match self {
             RequestRaw::Login(user_unchecked, author) => (Request::Login(user_unchecked), author),
@@ -55,7 +55,7 @@ impl ToMessage for RequestRaw {
         };
 
         let mut message = Message::new()?;
-        let content = request.to_ron()?.to_buff()?;
+        let content = request.into_ron()?.into_buff()?;
 
         // Recipient of Request will always be a server.
         let message_kind = MessageKind::Request;

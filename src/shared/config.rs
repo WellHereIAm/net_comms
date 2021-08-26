@@ -1,11 +1,3 @@
-/// Minimum value is 11, 8 for packet size, 2 for packet kind, and at least 1 for content. 
-pub const MAX_PACKET_SIZE: u16 = 1024;
-
-/// Minimal size that is every packet guaranteed to have, 2 bytes are for its size and 2 for its kind.
-pub const PACKET_DESCRIPTION_SIZE: u16 = 4;
-
-/// Maximum amount of bytes that a [Packet](crate::packet::Packet) can use for its content, its lower than [MAX_PACKET_SIZE] by [PACKET_DESCRIPTION_SIZE].
-pub static MAX_PACKET_CONTENT_SIZE: u16 = MAX_PACKET_SIZE - PACKET_DESCRIPTION_SIZE;
 
 /// Port that is used for connection.
 pub const PORT: &str = "8000";

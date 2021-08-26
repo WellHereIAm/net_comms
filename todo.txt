@@ -1,3 +1,7 @@
+MetaData in library will be only  a trait MetaData: ToRon + FromRon
+
+
+
 1. Create Client struct similar to Server.
 2. Concepts:
     Create some File struct to be hold inside new MetaData is_file field.

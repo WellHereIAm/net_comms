@@ -4,14 +4,14 @@
 //! This framework is build on top of [std::net].
 
 
+// mod bytes;
+// pub use bytes::Bytes;
+
 /// Module containing [FromBuffer] and [ToBuffer] traits.
 ///
 /// Those traits are used throughout this library as they provide necessary functionality for given type to convert it to or from buffer,
 /// which inside this library is always [Vec] of [u8].
 pub mod buffer;
-
-/// Module used to get and process user input through commands.
-pub mod command;
 
 /// [Error type](std::error::Error) for this library.
 pub mod error;
@@ -22,163 +22,16 @@ pub mod message;
 /// Module containing [Packet](packet::Packet) and other struct that are used inside it or with it.
 pub mod packet;
 
-/// Module containing `pretty` structs -- struct formatted in human readable form.
-pub mod pretty_structs;
-
-/// Module containing [Request](request::Request), which is used to send requests from client to server.
-pub mod request;
-
 /// Module containing [FromRon] and [ToRon] traits.
 ///
 /// Those traits have default methods so they do not need any work on implementation.
 pub mod ron;
 
-/// Module containing structs that are used for user identification.
-pub mod user;
-
-/// Shared constant and static variables used throughout this library.
-pub mod config;
-
 /// Re-export of all modules to ease the development.
 pub mod prelude {
-    pub use crate::command::{self, *};
     pub use crate::buffer::{self, *};
     pub use crate::error::{self, *};
     pub use crate::message::{self, *};
     pub use crate::packet::{self, *};
-    pub use crate::pretty_structs::{self, *};
-    pub use crate::request::{self, *};
     pub use crate::ron::{self, *};
-    pub use crate::user::{self, *};
-    pub use crate::config::{self, *};
 }
-
-use chrono::{DateTime, NaiveDateTime, Utc};
-
-use buffer::{ToBuffer, FromBuffer};
-use crate::error::{NetCommsError, NetCommsErrorKind};
-
-
-impl ToBuffer for usize {
-    fn to_buff(self) -> Result<Vec<u8>, NetCommsError> {
-        
-        Ok(self.to_be_bytes().to_vec())
-    }
-}
-
-impl FromBuffer for usize {
-
-    fn from_buff(buff: Vec<u8>) -> Result<usize, NetCommsError> {
-
-        // Check if buffer has valid length(at least 8).
-        if None == buff.get(7) {
-            return Err(NetCommsError::new(
-                NetCommsErrorKind::InvalidBufferSize,
-                Some("Implementation from_buff for usize requires buffer of length of at least 8 bytes.".to_string())))
-        }
-
-        let mut arr = [0_u8; 8];
-        for (index, value) in buff.into_iter().enumerate() {
-            arr[index] = value;
-        }
-        Ok(usize::from_be_bytes(arr))
-    }
-}
-
-impl ToBuffer for u16 {
-    fn to_buff(self) -> Result<Vec<u8>, NetCommsError> {
-        
-        Ok(self.to_be_bytes().to_vec())
-    }
-}
-
-impl FromBuffer for u16 {
-
-    fn from_buff(buff: Vec<u8>) -> Result<u16, NetCommsError> {
-
-        // Check if buffer has valid length(at least 2).
-        if None == buff.get(1) {
-            return Err(NetCommsError::new(
-                NetCommsErrorKind::InvalidBufferSize,
-                Some("Implementation from_buff for usize requires buffer of length of at least 2 bytes.".to_string())))
-        }
-
-        let mut arr = [0_u8; 2];
-        for (index, value) in buff.into_iter().enumerate() {
-            if index == 2 {
-                break;
-            }
-            arr[index] = value;
-        }
-        Ok(u16::from_be_bytes(arr))
-    }
-}
-
-impl ToBuffer for u32 {
-    fn to_buff(self) -> Result<Vec<u8>, NetCommsError> {
-        
-        Ok(self.to_be_bytes().to_vec())
-    }
-}
-
-impl FromBuffer for u32 {
-
-    fn from_buff(buff: Vec<u8>) -> Result<u32, NetCommsError> {
-
-        // Check if buffer has valid length(at least 4).
-        if None == buff.get(3) {
-            return Err(NetCommsError::new(
-                NetCommsErrorKind::InvalidBufferSize,
-                Some("Implementation from_buff for usize requires buffer of length of at least 4 bytes.".to_string())))
-        }
-
-        let mut arr = [0_u8; 4];
-        for (index, value) in buff.into_iter().enumerate() {
-            arr[index] = value;
-        }
-        Ok(u32::from_be_bytes(arr))
-    }
-}
-
-impl ToBuffer for String {
-
-    fn to_buff(self) -> Result<Vec<u8>, NetCommsError> {
-        Ok(self.as_bytes().to_vec())
-    }
-}
-
-impl FromBuffer for String {
-    
-    fn from_buff(buff: Vec<u8>) -> Result<String, NetCommsError> {
-        match String::from_utf8(buff) {
-            Ok(string) => Ok(string),
-            Err(e) => Err(NetCommsError::new(
-                NetCommsErrorKind::OtherSource(Box::new(e)),
-                None))
-        }
-    }
-}
-
-impl ToBuffer for DateTime<Utc> {
-
-    fn to_buff(self) -> Result<Vec<u8>, NetCommsError> {
-        (self.timestamp() as usize).to_buff()
-    }
-}
-
-impl FromBuffer for DateTime<Utc> {
-
-    fn from_buff(buff: Vec<u8>) -> Result<DateTime<Utc>, NetCommsError> {
-
-        // Check if buffer has valid length(at least 8).
-        if None == buff.get(7) {
-            return Err(NetCommsError::new(
-                NetCommsErrorKind::InvalidBufferSize,
-                Some("Implementation from_buff for DateTime<Utc> requires buffer of length of at least 8 bytes.".to_string())))
-        }
-        let naive_datetime = NaiveDateTime::from_timestamp(usize::from_buff(buff)? as i64, 0);
-
-        Ok(DateTime::from_utc(naive_datetime, Utc))  
-    }  
-}
-

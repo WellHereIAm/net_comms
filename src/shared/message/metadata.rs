@@ -1,13 +1,16 @@
-use std::time::SystemTime;
-
 use serde::{Serialize, Deserialize};
 use chrono::{DateTime, NaiveDateTime, Utc};
 
-use crate::buffer::{ToBuffer, FromBuffer};
-use crate::error::NetCommsError;
-use crate::message::{Message, MessageKind};
-use crate::ron::{ToRon, FromRon};
-use crate::user::User;
+use std::path::{Path, PathBuf};
+use std::time::SystemTime;
+
+use library::buffer::{IntoBuffer, FromBuffer};
+use library::error::{NetCommsError, NetCommsErrorKind};
+use library::message::{Message, MetaDataType};
+use library::ron::{IntoRon, FromRon};
+use library::packet::Packet;
+
+use super::message_kind::MessageKind;
 
 
 /// This struct holds metadata of each [Message].
@@ -37,14 +40,33 @@ pub struct MetaData {
     file_name: Option<String>,  
 }
 
-impl ToRon for MetaData {}
+impl Default for MetaData {
+    
+    fn default() -> Self {
+
+        let datetime = Self::current_datetime().into_buff()?;
+
+        Ok(MetaData {
+            message_kind: MessageKind::Empty,
+            message_length: 0,
+            datetime,
+            author_id: 0,
+            author_username: "".to_string(),
+            recipient_id: 0,
+            recipients: vec![],
+            file_name: None,
+        })
+    }
+}
+
+impl IntoRon for MetaData {}
 impl FromRon<'_> for MetaData {}
 
-impl ToBuffer for MetaData {
+impl IntoBuffer for MetaData {
 
     /// This takes an ownership of self and first encodes MetaData to RON format which is then encoded to buffer.
-    fn to_buff(self) -> Result<Vec<u8>, NetCommsError> {
-        self.to_ron()?.to_buff()
+    fn into_buff(self) -> Result<Vec<u8>, NetCommsError> {
+        self.into_ron()?.into_buff()
     }    
 }
 
@@ -56,6 +78,71 @@ impl FromBuffer for MetaData {
     /// This implementation does not check if the buffer has correct length as it can vary.
     fn from_buff(buff: Vec<u8>) -> Result<MetaData, NetCommsError> {
         MetaData::from_ron(&String::from_buff(buff)?)
+    }
+}
+
+impl MetaDataType for MetaData {
+    
+    fn send(&self, stream: &mut std::net::TcpStream) -> Result<MetaData, NetCommsError> {
+
+        // Create multiple metadata packets if necessary and write them to stream.
+        let metadata_buff = self.into_buff()?;
+        let metadata_buff_split = Packet::split_to_max_packet_size(metadata_buff);
+
+        let mut metadata_buff = Vec::new();
+        
+        let mut id = 0;    // id is used to know when end of metadata is reached, so MetaDataEnd can be send.
+        let n_of_metadata_packets = metadata_buff_split.len();
+
+        for buff in metadata_buff_split {
+            id += 1;
+            let packet: Packet;
+            if id == n_of_metadata_packets {
+                packet = Packet::new(PacketKind::MetaDataEnd, buff);
+            } else {
+                packet = Packet::new(PacketKind::MetaData, buff);
+            }
+
+            let packet_buff = packet.into_buff()?;
+            
+            if let Err(e) = stream.write(&packet_buff) {
+                return Err(NetCommsError::new(
+                    NetCommsErrorKind::WritingToStreamFailed,
+                    Some(format!("Failed to write metadata packet to stream. ({})", e))));
+            }
+
+            let packet = Packet::from(packet_buff);
+            metadata_buff.append(&mut packet.content_move());
+        }
+
+        let metadata = MetaData::from_buff(metadata_buff)?;
+
+        Ok(metadata)
+    }
+
+    fn receive(stream: &mut std::net::TcpStream, location: &Path) -> Result<Self, NetCommsError> {
+        
+        let mut metadata_buff = Vec::new(); 
+
+        // Loop to read all metadata packets.
+        loop {   
+            let packet = Packet::receive(stream)?;         
+            match packet.kind() {
+                PacketKind::MetaData => {
+                    metadata_buff.extend(packet.content_move());
+                }
+                PacketKind::MetaDataEnd => {
+                    metadata_buff.extend(packet.content_move());
+                    break;
+                },
+                _ => {
+                    return Err(NetCommsError::new(
+                        NetCommsErrorKind::InvalidPacketKind, 
+                        Some(format!("Unexpected PacketKind, expected MetaData or MetaDataEnd, arrived:\n {:?}", packet.kind()))));
+                }               
+            }
+        }
+        Ok(MetaData::from_buff(metadata_buff)?)
     }
 }
 
@@ -83,7 +170,7 @@ impl MetaData {
         let temp_metadata = Self {
             message_kind,
             message_length: 0,
-            datetime: Self::current_datetime().to_buff()?,
+            datetime: Self::current_datetime().into_buff()?,
             author_id: author.id(),
             author_username: author.username(),
             recipient_id,
@@ -91,7 +178,7 @@ impl MetaData {
             file_name,
         };
 
-        let temp_metadata_buffer = temp_metadata.to_buff()?;    
+        let temp_metadata_buffer = temp_metadata.into_buff()?;    
         let n_of_metadata_packets = Message::number_of_packets(&temp_metadata_buffer);        
         let n_of_content_packets = Message::number_of_packets(content);
 
@@ -102,14 +189,30 @@ impl MetaData {
         metadata.set_message_length(message_length);
 
         Ok(metadata)
-}
+    }
+
+    pub fn with_content_length(self, content_length: usize) -> MetaData {
+
+        let number_of_content_packets = Packet::number_of_packets(content_length);
+
+        // This operation is not computationally heavy as there is only transfer of ownership, no cloning.
+        let metadata_buff = metadata.into_buff()?;
+        let n_of_metadata_packets = Self::number_of_packets(&metadata_buff);
+                    
+        let n_of_packets = n_of_metadata_packets + n_of_content_packets + 1;
+
+        let mut metadata = MetaData::from_buff(metadata_buff)?;
+        metadata.set_message_length(n_of_packets);
+
+        metadata
+    }
 
     /// Creates a new empty [MetaData].
     ///
     /// Datetime inside is correct.
     pub fn new_empty() -> Result<MetaData, NetCommsError> {
 
-        let datetime = Self::current_datetime().to_buff()?;
+        let datetime = Self::current_datetime().into_buff()?;
 
         Ok(MetaData {
             message_kind: MessageKind::Empty,
@@ -121,6 +224,21 @@ impl MetaData {
             recipients: vec![],
             file_name: None,
         })
+    }
+
+    pub fn get_message_location(&self, location: &Path) -> PathBuf {
+
+        let mut path = PathBuf::from(location);
+
+        match self.message_kind {
+            MessageKind::Request => path.push("requests"),
+            MessageKind::Text | MessageKind::File => path.push("user_to_user"),
+            MessageKind::SeverReply => path.push("server_replies"),
+            _ => path.push("other"),
+        }
+        path.push(self.datetime_as_string());
+
+        path
     }
 
     /// Returns [MessageKind] .
@@ -208,8 +326,6 @@ impl MetaData {
     pub fn set_file_name(&mut self, name: Option<String>) {
         self.file_name = name;
     }
-
-
 
     /// Internal method used in [MetaData::new] and [MetaData::new_empty] to get current [[DateTime<Utc>]].
     fn current_datetime() -> DateTime<Utc> {
