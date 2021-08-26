@@ -5,6 +5,7 @@ use std::io::{Read, Write};
 use std::net::TcpStream;
 
 use crate::buffer::{IntoBuffer, FromBuffer};
+use crate::bytes::{Bytes, IntoBytes};
 use crate::error::{NetCommsError, NetCommsErrorKind};
 use crate::packet::PacketKind;
 use crate::ron::{IntoRon, FromRon};
@@ -37,7 +38,7 @@ pub static MAX_PACKET_CONTENT_SIZE: u16 = unsafe { MAX_PACKET_SIZE - PACKET_DESC
 pub struct Packet {
     size: u16,    
     kind: PacketKind,  
-    content: Vec<u8>,
+    content: Bytes,
 }
 
 impl IntoRon for Packet {}
@@ -49,7 +50,7 @@ impl Default for Packet {
         Packet {
             size: PACKET_DESCRIPTION_SIZE,
             kind: PacketKind::Empty,
-            content: Vec::new(),
+            content: Bytes::new(),
         }
     }
 }
@@ -62,7 +63,7 @@ impl IntoBuffer for Packet {
         let mut buff: Vec<u8> = Vec::new();
         buff.extend(self.size.into_buff()?);
         buff.extend(self.kind.into_buff()?);
-        buff.extend(self.content);
+        buff.extend(self.content.into_vec());
 
         Ok(buff)
     }
@@ -86,7 +87,7 @@ impl FromBuffer for Packet {
         Ok(Packet {
             size: size as u16,
             kind,
-            content,
+            content: content.into_bytes(),
         })
     }
 }
@@ -102,7 +103,7 @@ impl Packet {
     /// ```
     /// let packet = Packet::new(PacketKind::End);
     /// ```
-    pub fn new(kind: PacketKind, content: Vec<u8>) -> Self {
+    pub fn new(kind: PacketKind, content: Bytes) -> Self {
 
         // Size is composed of three parts:
         // Size of size field which is always 2.
@@ -201,12 +202,12 @@ impl Packet {
     /// Returns `content`.
     ///
     /// Content is cloned.
-    pub fn content(&self) -> Vec<u8> {
+    pub fn content(&self) -> Bytes {
         self.content.clone()
     }
 
     /// Consumes `self` and returns `content`.
-    pub fn content_move(self) -> Vec<u8> {
+    pub fn content_move(self) -> Bytes {
         self.content
     }
 

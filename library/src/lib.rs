@@ -4,14 +4,13 @@
 //! This framework is build on top of [std::net].
 
 
-// mod bytes;
-// pub use bytes::Bytes;
-
 /// Module containing [FromBuffer] and [ToBuffer] traits.
 ///
 /// Those traits are used throughout this library as they provide necessary functionality for given type to convert it to or from buffer,
 /// which inside this library is always [Vec] of [u8].
 pub mod buffer;
+
+pub mod bytes;
 
 /// [Error type](std::error::Error) for this library.
 pub mod error;
