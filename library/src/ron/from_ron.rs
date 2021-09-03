@@ -1,5 +1,5 @@
-use ron::de;
 use serde::Deserialize;
+use ron::de;
 
 use crate::error::{NetCommsError, NetCommsErrorKind};
 

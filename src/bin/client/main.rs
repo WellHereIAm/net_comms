@@ -7,8 +7,17 @@ use std::time::Duration;
 use std::{net::TcpStream, thread};
 use std::sync::mpsc;
 
-extern crate library;
-use library::prelude::*;
+
+/// Module used to get and process user input through commands.
+mod command;
+use command::CommandRaw;
+use library::bytes::{FromBytes, IntoBytes};
+use library::error::NetCommsError;
+use library::prelude::{FromRon, IntoMessage, IntoRon};
+use shared::message::ServerReply;
+use shared::{ImplementedMessage, MessageKind, RequestRaw};
+use shared::config::{ADDR, PORT};
+use shared::user::User;
 
 mod client;
 
@@ -18,21 +27,22 @@ fn main() -> Result<(), NetCommsError> {
 
     let socket = format!("{}:{}", ADDR, PORT);
     let user = get_user(&User::default())?;
-    let (waiting_messages_transmitter, _waiting_messages_receiver) = mpsc::channel::<Message>();
-    let _get_waiting_messages_handle = get_waiting_messages(user.clone(), socket.clone(), waiting_messages_transmitter);
+    let (waiting_messages_transmitter, _waiting_messages_receiver) =
+    mpsc::channel::<ImplementedMessage>();
+    let _ = get_waiting_messages(user.clone(), socket.clone(), waiting_messages_transmitter);
 
     loop {
         let cmd_raw = CommandRaw::get(Some("send <(recipient_1, recipient_2, ..., recipient_n)> <content> \n"));
         let cmd = cmd_raw.process(&user).unwrap();
-        let msg = Message::from_command(cmd).unwrap();
+        let message = cmd.into_message()?;
 
 
         match TcpStream::connect(&socket) {
             Ok(mut stream) => {
-                if let Some(_) = msg.metadata().file_name() {
-                    msg.send_file(&mut stream)?;
+                if let Some(path) = message.metadata().file_name() {
+                    ImplementedMessage::send_file(&mut stream, Path::new(&path))?;
                 } else {
-                    msg.send(&mut stream)?;
+                    message.send(&mut stream)?;
                 }
             },            
             Err(e) => {
@@ -48,19 +58,23 @@ fn get_user(user: &User) -> Result<User, NetCommsError> {
     let socket = format!("{}:{}", ADDR, PORT);
     // Get user by login or register. Only register works now.
     let user = user.clone();
-    let cmd_raw = CommandRaw::get(Some("register <username> <password> <password>\nlogin <username> <password>\n".to_string()));
+    let cmd_raw = command::CommandRaw::get(Some("register <username> <password> <password>\nlogin <username> <password>\n".to_string()));
     let cmd = cmd_raw.process(&user)?;
-    let request = Message::from_command(cmd)?;
+    let request = cmd.into_message()?;
+    println!("request: {:?}", &request);
+
 
 
     let location = Path::new("D:\\stepa\\Documents\\Rust\\net_comms\\client_logs");
     match TcpStream::connect(socket.clone()) {
         Ok(mut stream) => {
             request.send(&mut stream)?;
-            let msg = Message::receive(&mut stream, location)?;
-            match msg.kind() {
+            let msg = ImplementedMessage::receive(&mut stream, Some(location.to_path_buf()))?;
+            let metadata = msg.metadata();
+            let message_kind = metadata.message_kind();
+            match message_kind {
                 MessageKind::SeverReply => {
-                    let server_reply = ServerReply::from_ron(&String::from_buff(msg.content_owned())?)?;
+                    let server_reply = ServerReply::from_ron(&String::from_buff(&msg.content_move().into_buff())?)?;
                     if let ServerReply::User(user) = server_reply {
                         return Ok(user);
                     } else {
@@ -77,38 +91,40 @@ fn get_user(user: &User) -> Result<User, NetCommsError> {
     }
 } 
 
-fn get_waiting_messages(user: User, socket: String, _mpsc_transmitter: Sender<Message>) -> JoinHandle<()> {
+fn get_waiting_messages(user: User, socket: String, _mpsc_transmitter: Sender<ImplementedMessage>) -> JoinHandle<()> {
 
     thread::Builder::new().name("GetWaitingMessages".to_string()).spawn(move || {
 
         loop {
             // Need to solve error handling. Maybe another mpsc channel?
-            let request = Request::GetWaitingMessagesAuto;
-            let message = Message::from_request(request, user.clone()).unwrap();
+            let request = RequestRaw::GetWaitingMessagesAuto(user.clone());
+            let message = request.into_message().unwrap();
 
             match TcpStream::connect(&socket) {
                 Ok(mut stream) => {
                     message.send(&mut stream).unwrap();
                     loop {
                         let location = Path::new("D:\\stepa\\Documents\\Rust\\net_comms\\client_logs");
-                        match Message::receive(&mut stream, location) {
+                        match ImplementedMessage::receive(&mut stream, Some(location.to_path_buf())) {
                             Ok(message) => {
 
-                                let message_pretty = MessagePretty::from_message(&message);
-                                let mut file = fs::File::create("received_message.ron").unwrap();
-                                file.write_all(&message_pretty.to_ron_pretty(None).unwrap().to_buff().unwrap()).unwrap();
+                                let metadata = message.metadata();
+                                let message_kind = metadata.message_kind();         
 
+                                let message_pretty = message.into_ron_pretty(None).unwrap();
+                                let mut file = fs::File::create("received_message.ron").unwrap();
+                                file.write_all(&message_pretty.into_buff()).unwrap();
 
                                 // Why use multiple statements, when I can use one :D
                                 println!("{author} [{datetime}]: {content}",
                                     author = message.metadata().author_username(),
                                     datetime = message.metadata().datetime_as_string(),
-                                    content = match message.kind() {
+                                    content = match message_kind {
                                         MessageKind::File => format!("Received a file {name} at {location}",
                                                                         name = PathBuf::from(message.metadata().file_name().unwrap()).file_name().unwrap().to_string_lossy(),
                                                                         location = PathBuf::from(message.metadata().file_name().unwrap()).to_string_lossy()
                                                                     ),
-                                        _ => String::from_buff(message.content_owned()).unwrap()                                                        
+                                        _ => String::from_buff(&message.content_move().into_buff()).unwrap()                                                        
                                     }) 
                             }
                             Err(_) => break,
