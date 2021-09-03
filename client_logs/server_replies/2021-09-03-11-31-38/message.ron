@@ -1,0 +1,1 @@
+(metadata:(message_kind:SeverReply,message_length:3,datetime:([0,0,0,0,97,50,7,154]),author_id:0,author_username:"SERVER",recipient_id:1,recipients:["1"],file_name:None),content:("User((id:2,username:\"man\",password:\"pass\"))"),end_data:(size:4,kind:End,content:([])))
