@@ -7,20 +7,18 @@ use std::time::Duration;
 use std::{net::TcpStream, thread};
 use std::sync::mpsc;
 
-use library::buffer::{FromBuffer, IntoBuffer};
-use library::error::NetCommsError;
-use library::config::{ADDR, PORT};
-use library::message::{Message, ServerReply, IntoMessage};
-use library::ron::IntoRon;
-use library::pretty_structs::MessagePretty;
-use library::user::User;
 
 /// Module used to get and process user input through commands.
 mod command;
 use command::CommandRaw;
-use shared::RequestRaw;
+use library::bytes::{FromBytes, IntoBytes};
+use library::error::NetCommsError;
+use library::prelude::{FromRon, IntoMessage, IntoRon};
+use shared::message::ServerReply;
+use shared::{ImplementedMessage, MessageKind, RequestRaw};
+use shared::config::{ADDR, PORT};
+use shared::user::User;
 
-mod message;
 mod client;
 
 
@@ -29,7 +27,8 @@ fn main() -> Result<(), NetCommsError> {
 
     let socket = format!("{}:{}", ADDR, PORT);
     let user = get_user(&User::default())?;
-    let (waiting_messages_transmitter, _waiting_messages_receiver) = mpsc::channel::<Message>();
+    let (waiting_messages_transmitter, _waiting_messages_receiver) =
+    mpsc::channel::<ImplementedMessage>();
     let _ = get_waiting_messages(user.clone(), socket.clone(), waiting_messages_transmitter);
 
     loop {
@@ -40,8 +39,8 @@ fn main() -> Result<(), NetCommsError> {
 
         match TcpStream::connect(&socket) {
             Ok(mut stream) => {
-                if let Some(_) = message.metadata().file_name() {
-                    message.send_file(&mut stream)?;
+                if let Some(path) = message.metadata().file_name() {
+                    ImplementedMessage::send_file(&mut stream, Path::new(&path))?;
                 } else {
                     message.send(&mut stream)?;
                 }
@@ -62,16 +61,18 @@ fn get_user(user: &User) -> Result<User, NetCommsError> {
     let cmd_raw = command::CommandRaw::get(Some("register <username> <password> <password>\nlogin <username> <password>\n".to_string()));
     let cmd = cmd_raw.process(&user)?;
     let request = cmd.into_message()?;
+    println!("request: {:?}", &request);
+
 
 
     let location = Path::new("D:\\stepa\\Documents\\Rust\\net_comms\\client_logs");
     match TcpStream::connect(socket.clone()) {
         Ok(mut stream) => {
             request.send(&mut stream)?;
-            let msg = Message::receive(&mut stream, location)?;
+            let msg = ImplementedMessage::receive(&mut stream, Some(location.to_path_buf()))?;
             match msg.kind() {
                 MessageKind::SeverReply => {
-                    let server_reply = ServerReply::from_ron(&String::from_buff(msg.content_owned())?)?;
+                    let server_reply = ServerReply::from_ron(&String::from_buff(&msg.content_move().into_buff())?)?;
                     if let ServerReply::User(user) = server_reply {
                         return Ok(user);
                     } else {
@@ -88,7 +89,7 @@ fn get_user(user: &User) -> Result<User, NetCommsError> {
     }
 } 
 
-fn get_waiting_messages(user: User, socket: String, _mpsc_transmitter: Sender<Message>) -> JoinHandle<()> {
+fn get_waiting_messages(user: User, socket: String, _mpsc_transmitter: Sender<ImplementedMessage>) -> JoinHandle<()> {
 
     thread::Builder::new().name("GetWaitingMessages".to_string()).spawn(move || {
 
@@ -102,12 +103,12 @@ fn get_waiting_messages(user: User, socket: String, _mpsc_transmitter: Sender<Me
                     message.send(&mut stream).unwrap();
                     loop {
                         let location = Path::new("D:\\stepa\\Documents\\Rust\\net_comms\\client_logs");
-                        match Message::receive(&mut stream, location) {
+                        match ImplementedMessage::receive(&mut stream, Some(location.to_path_buf())) {
                             Ok(message) => {
 
-                                let message_pretty = MessagePretty::from_message(&message);
+                                let message_pretty = message.into_ron_pretty(None).unwrap();
                                 let mut file = fs::File::create("received_message.ron").unwrap();
-                                file.write_all(&message_pretty.into_ron_pretty(None).unwrap().into_buff().unwrap()).unwrap();
+                                file.write_all(&message_pretty.into_buff()).unwrap();
 
 
                                 // Why use multiple statements, when I can use one :D
@@ -119,7 +120,7 @@ fn get_waiting_messages(user: User, socket: String, _mpsc_transmitter: Sender<Me
                                                                         name = PathBuf::from(message.metadata().file_name().unwrap()).file_name().unwrap().to_string_lossy(),
                                                                         location = PathBuf::from(message.metadata().file_name().unwrap()).to_string_lossy()
                                                                     ),
-                                        _ => String::from_buff(message.content_owned()).unwrap()                                                        
+                                        _ => String::from_buff(&message.content_move().into_buff()).unwrap()                                                        
                                     }) 
                             }
                             Err(_) => break,

@@ -1,5 +1,3 @@
-
-
 /// All kinds of errors that can occur in and while using this library.
 #[derive(Debug)]
 pub enum NetCommsErrorKind {

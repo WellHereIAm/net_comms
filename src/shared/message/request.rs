@@ -1,13 +1,16 @@
+use library::bytes::{Bytes, FromBytes, IntoBytes};
 use serde::{Serialize, Deserialize};
 
-use library::ron::{IntoRon, FromRon};
-use library::user::UserUnchecked;
-use library::message::{Message, MessageKind, IntoMessage};
-use library::packet::{MetaData, Packet, PacketKind};
+use library::ron::{FromRon, IntoRon};
+use library::message::{Message, IntoMessage, MessageKindType, MetaDataType, ContentType};
 use library::error::NetCommsError;
-use library::user::User;
-use library::buffer::IntoBuffer;
-use library::config::{SERVER_USERNAME, SERVER_ID};
+use library::packet::{Packet, PacketKind};
+
+use crate::config::{SERVER_ID, SERVER_USERNAME};
+use crate::message::{MessageKind, MetaData, Content};
+use crate::user::{User, UserUnchecked};
+
+use crate::ImplementedMessage;
 
 
 /// Holds data about requests from client to server.
@@ -43,9 +46,9 @@ pub enum RequestRaw {
     Unknown(User),    
 }
 
-impl IntoMessage for RequestRaw {
+impl IntoMessage<'_, MessageKind, MetaData, Content> for RequestRaw {
     
-    fn into_message(self) -> Result<Message, NetCommsError> {
+    fn into_message(self) -> Result<ImplementedMessage, NetCommsError> {
 
         let (request, author) = match self {
             RequestRaw::Login(user_unchecked, author) => (Request::Login(user_unchecked), author),
@@ -54,20 +57,21 @@ impl IntoMessage for RequestRaw {
             RequestRaw::Unknown(author) => (Request::Unknown, author),
         };
 
-        let mut message = Message::new()?;
-        let content = request.into_ron()?.into_buff()?;
+        let mut message = ImplementedMessage::new();
+        let content = Content::with_data(request.into_ron()?);
+        let content_buff = content.into_bytes();
 
         // Recipient of Request will always be a server.
         let message_kind = MessageKind::Request;
         let recipients = vec![SERVER_USERNAME.to_string().clone()];
         let file_name = None;
 
-        let metadata = MetaData::new(&content, message_kind, author, SERVER_ID, recipients, file_name)?;
+        let metadata = MetaData::new(&content_buff, message_kind, author, SERVER_ID, recipients, file_name)?;
         message.set_metadata(metadata);
 
-        message.set_content(content);
+        message.set_content(Content::from_bytes(content_buff)?);
 
-        let end_data = Packet::new(PacketKind::End, Vec::new());
+        let end_data = Packet::new(PacketKind::End, Bytes::new());
         message.set_end_data(end_data);
 
         Ok(message)  

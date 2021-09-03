@@ -1,7 +1,5 @@
-
-
-use ron::ser::{self, PrettyConfig};
 use serde::Serialize;
+use ron::ser::{self, PrettyConfig};
 
 use crate::error::{NetCommsError, NetCommsErrorKind};
 

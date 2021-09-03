@@ -1,11 +1,8 @@
 use std::path::Path;
 
+use library::{bytes::IntoBytes, error::{NetCommsError, NetCommsErrorKind}};
+use shared::{MessageKind, user::{User, UserUnchecked}};
 use utils::input;
-
-use library::buffer::IntoBuffer;
-use library::error::{NetCommsError, NetCommsErrorKind};
-use library::message::MessageKind;
-use library::user::{User, UserUnchecked};
 
 use super::Command;
 
@@ -325,7 +322,7 @@ impl CommandRaw {
         } else {
             kind = MessageKind::Text;
             file_name = None;
-            content = cmd_content.into_buff()?;
+            content = cmd_content.into_buff();
         }
 
         let author = user.clone();

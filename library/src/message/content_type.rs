@@ -7,15 +7,14 @@ use crate::packet::Packet;
 use crate::ron::{FromRon, IntoRon};
 use crate::message::{Message, MessageKindType, MetaDataType};
 
-pub trait ContentType<'a, K, M, C>:
+pub trait ContentType<'a, M, C>:
     Default + Clone + Display + Debug + FromRon<'a> + IntoRon 
 where
-    K: MessageKindType<'a>,
     M: MetaDataType<'a>,
-    C: ContentType<'a, K, M, C>, {
+    C: ContentType<'a, M, C>, {
     
     fn send(self, stream: &mut TcpStream, metadata: M) -> Result<(), NetCommsError>;
     fn receive(stream: &mut TcpStream,
-               message: &mut Message<K, M, C>,
+               message: &mut Message<M, C>,
                location: Option<PathBuf>) -> Result<(Self, Packet), NetCommsError>;
 }

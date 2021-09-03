@@ -1,3 +1,9 @@
+use library::bytes::{FromBytes, IntoBytes};
+use library::prelude::IntoMessage;
+use serde::{Serialize, Deserialize};
+use indoc::indoc;
+use shared::{ImplementedMessage, Request};
+
 use std::collections::HashMap;
 use std::{fs, io, thread};
 use std::io::{Read, Write};
@@ -7,19 +13,14 @@ use std::str::FromStr;
 use std::sync::{Arc, Mutex, mpsc};
 use std::sync::mpsc::{Receiver, Sender};
 
-use serde::{Serialize, Deserialize};
-use indoc::indoc;
-
-use library::buffer::{FromBuffer, IntoBuffer};
 use library::error::{NetCommsError, NetCommsErrorKind};
-use library::ron::FromRon;
-use library::config::{ADDR, PORT, SERVER_ID, UNKNOWN_USER_ID};
-use library::message::{Message, MessageKind, ServerReply, IntoMessage};
-use library::ron::IntoRon;
-use library::pretty_structs::MessagePretty;
-use library::user::{User, UserUnchecked};
+use library::ron::{FromRon, IntoRon};
+use library::message::Message;
 
-use shared::Request;
+use shared::message::{Content, MessageKind, MetaData, ServerReply, ServerReplyRaw};
+use shared::user::{User, UserUnchecked};
+use shared::config::{SERVER_ID, UNKNOWN_USERNAME, UNKNOWN_USER_ID};
+
 use utils::input;
 
 pub enum Output {
@@ -74,7 +75,7 @@ impl ServerConfig {
 pub struct Server {
    users: Arc<Mutex<HashMap<String, User>>>,
    ids: Arc<Mutex<Vec<u32>>>,
-   waiting_messages: Arc<Mutex<HashMap<u32, Vec<Message>>>>,
+   waiting_messages: Arc<Mutex<HashMap<u32, Vec<ImplementedMessage>>>>,
    config: ServerConfig,
 }
 
@@ -238,8 +239,9 @@ impl Server {
 
             if can_start_answer {
                 thread::Builder::new().name("connection".to_string()).spawn(move || {
-                    match Message::receive(&mut stream, location.as_path()) {
+                    match Message::receive(&mut stream, Some(location)) {
                         Ok(message) => {
+                            output.send(Output::FromRun(message.clone().into_ron_pretty(None).unwrap())).unwrap();
                             match message.kind() {
                                 MessageKind::Text | MessageKind::File => {
                                     let _ = Self::receive_user_to_user_message(message, waiting_messages, users, output.clone());      
@@ -274,8 +276,8 @@ impl Server {
         
     }
 
-    fn receive_user_to_user_message(message: Message,
-                                    waiting_messages: Arc<Mutex<HashMap<u32, Vec<Message>>>>,
+    fn receive_user_to_user_message(message: ImplementedMessage,
+                                    waiting_messages: Arc<Mutex<HashMap<u32, Vec<ImplementedMessage>>>>,
                                     users: Arc<Mutex<HashMap<String, User>>>,
                                     output: Sender<Output>) -> Vec<String> {
 
@@ -313,15 +315,15 @@ impl Server {
         non_existent_recipients
     }
 
-    fn receive_request(message: Message,
+    fn receive_request(message: ImplementedMessage,
                        stream: TcpStream, 
-                       waiting_messages: Arc<Mutex<HashMap<u32, Vec<Message>>>>,
+                       waiting_messages: Arc<Mutex<HashMap<u32, Vec<ImplementedMessage>>>>,
                        users: Arc<Mutex<HashMap<String, User>>>,
                        ids: Arc<Mutex<Vec<u32>>>,
                        output: Sender<Output>) {
 
         let author = User::new(message.metadata().author_id(), message.metadata().author_username(), "Dummy".to_string());
-        let request = Request::from_ron(&String::from_buff(message.content_owned()).unwrap()).unwrap();
+        let request = Request::from_ron(&String::from_buff(&message.content_move().into_buff()).unwrap()).unwrap();
 
         match request {
             Request::Register(user_unchecked) => {
@@ -346,6 +348,8 @@ impl Server {
         let username = user_unchecked.username;
         let password = user_unchecked.password;
 
+        let default_user = User::new(UNKNOWN_USER_ID, UNKNOWN_USER_ID.to_string(), "Some".to_string());
+
         let mut users_guard = match users.lock() {
             Ok(guard) => guard,
             Err(poisoned) => poisoned.into_inner(),
@@ -353,9 +357,9 @@ impl Server {
 
         match users_guard.get(&username) {
             Some(_) => {
-                let server_reply = ServerReply::Error("This username already exists.".to_string());
+                let server_reply = ServerReplyRaw::Error("This username already exists.".to_string(), default_user);
+                let message = server_reply.into_message().unwrap();
 
-                let message = Message::from_server_reply(server_reply).unwrap();
                 if let Err(e) =  message.send(&mut stream) {
                     let err_content = format!(indoc!{
                         "
@@ -387,8 +391,8 @@ impl Server {
                 users_guard.insert(user.username().clone(), user.clone());
                 drop(users_guard);
 
-                let server_reply = ServerReply::User(user);
-                let message = Message::from_server_reply(server_reply).unwrap();
+                let server_reply = ServerReplyRaw::User(user, default_user);
+                let message = server_reply.into_message().unwrap();
                 if let Err(e) =  message.send(&mut stream) {
                     let err_content = format!(indoc!{
                         "
@@ -418,8 +422,9 @@ impl Server {
         match users_guard.get(&username) {
             Some(user) => {
                 if password == user.password() {
-                    let server_reply = ServerReply::User(user.clone());
-                    let message = Message::from_server_reply(server_reply).unwrap();
+                    let default_user = User::new(UNKNOWN_USER_ID, UNKNOWN_USER_ID.to_string(), "Some".to_string());
+                    let server_reply = ServerReplyRaw::User(user.clone(), default_user);
+                    let message = server_reply.into_message().unwrap();
                     if let Err(e) =  message.send(&mut stream) {
                         let err_content = format!(indoc!{
                             "
@@ -432,8 +437,9 @@ impl Server {
                         output.send(Output::Error(err_content)).unwrap();
                     }
                 } else {
-                    let server_reply = ServerReply::Error("Incorrect password.".to_string());
-                    let message = Message::from_server_reply(server_reply).unwrap();
+                    let default_user = User::new(UNKNOWN_USER_ID, UNKNOWN_USER_ID.to_string(), "Some".to_string());
+                    let server_reply = ServerReplyRaw::Error("Incorrect password.".to_string(), default_user);
+                    let message = server_reply.into_message().unwrap();
                     if let Err(e) =  message.send(&mut stream) {
                         let err_content = format!(indoc!{
                             "
@@ -449,8 +455,10 @@ impl Server {
                 }
             },
             None => {
-                let server_reply = ServerReply::Error(format!("User with username: {} does not exist", username));
-                let message = Message::from_server_reply(server_reply).unwrap();
+                let default_user = User::new(UNKNOWN_USER_ID, UNKNOWN_USER_ID.to_string(), "Some".to_string());
+                let server_reply = ServerReplyRaw::Error(format!("User with username: {} does not exist", username), default_user);
+                let message = server_reply.into_message().unwrap();
+
                 if let Err(e) =  message.send(&mut stream) {
                     let err_content = format!(indoc!{
                         "
@@ -467,7 +475,7 @@ impl Server {
         }
     }
 
-    fn return_waiting_messages(mut stream: TcpStream, waiting_messages: Arc<Mutex<HashMap<u32, Vec<Message>>>>, author: User,
+    fn return_waiting_messages(mut stream: TcpStream, waiting_messages: Arc<Mutex<HashMap<u32, Vec<ImplementedMessage>>>>, author: User,
                                output: Sender<Output>) {
 
         let mut waiting_messages_guard = match waiting_messages.lock() {
@@ -487,8 +495,8 @@ impl Server {
                     message.set_metadata(metadata);
 
                     match message.metadata().file_name() {
-                        Some(_) => {
-                            if let Err(e) = message.send_file(&mut stream) {
+                        Some(path) => {
+                            if let Err(e) = ImplementedMessage::send_file(&mut stream, Path::new(&path)) {
                                 let err_content = format!(indoc!{
                                     "
                                     Failed to send a file,

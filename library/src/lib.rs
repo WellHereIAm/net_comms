@@ -8,7 +8,7 @@
 ///
 /// Those traits are used throughout this library as they provide necessary functionality for given type to convert it to or from buffer,
 /// which inside this library is always [Vec] of [u8].
-pub mod buffer;
+// pub mod buffer;
 
 pub mod bytes;
 
@@ -28,7 +28,7 @@ pub mod ron;
 
 /// Re-export of all modules to ease the development.
 pub mod prelude {
-    pub use crate::buffer::{self, *};
+    // pub use crate::buffer::{self, *};
     pub use crate::error::{self, *};
     pub use crate::message::{self, *};
     pub use crate::packet::{self, *};

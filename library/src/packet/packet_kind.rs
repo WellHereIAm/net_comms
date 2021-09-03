@@ -1,10 +1,9 @@
 use serde::{Serialize, Deserialize};
 
-use crate::buffer::{IntoBuffer, FromBuffer};
+use crate::bytes::{Bytes, FromBytes, IntoBytes};
+// use crate::buffer::{IntoBuffer, FromBuffer};
 use crate::error::{NetCommsError, NetCommsErrorKind};
 use crate::ron::{IntoRon, FromRon};
-
-use PacketKind::*;
 
 
 /// Determines kind of [Packet](super::Packet).
@@ -34,29 +33,39 @@ pub enum PacketKind {
 impl IntoRon for PacketKind {}
 impl FromRon<'_> for PacketKind {}
 
-impl IntoBuffer for PacketKind {
 
-    /// This method takes an ownership of self.
-    fn into_buff(self) -> Result<Vec<u8>, NetCommsError> {
+impl FromBytes for PacketKind {
+    
+    fn from_bytes(bytes: Bytes) -> Result<Self, NetCommsError>
+    where
+            Self: Sized {
 
-        let mut buff: Vec<u8> = Vec::new();
+        // Check if buffer has valid length(at least 2).
+        match bytes.get(1) {
+            Some(_) => &bytes[0..2],
+            None => return Err(NetCommsError::new(
+                NetCommsErrorKind::InvalidBufferSize,
+                Some("Implementation from_buff for PacketKind requires buffer of length of at least three bytes.".to_string())))
+        };
 
-        match self {
-            Empty => buff.extend([0_u8, 0_u8]),
-            MetaData => buff.extend([1_u8, 0_u8]),
-            MetaDataEnd => buff.extend([1_u8, 1_u8]),
-            Content => buff.extend([2_u8, 0_u8]),
-            End => buff.extend([3_u8, 0_u8]),
-            Unknown => buff.extend([255_u8, 0_u8]),
-        }
+        let kind = match bytes[0] {
+            0 => PacketKind::Empty,
+            1 => match bytes[1] {
+                    0 => PacketKind::MetaData,
+                    1 => PacketKind::MetaDataEnd,
+                    _ => PacketKind::Unknown,              
+            }
+            2 => PacketKind::Content,
+            3 => PacketKind::End,
+            _ => PacketKind::Unknown,  
+        };
 
-        Ok(buff)
-    }    
-}
+        Ok(kind)          
+    }
 
-impl FromBuffer for PacketKind {
-
-    fn from_buff(buff: Vec<u8>) -> Result<PacketKind, NetCommsError> {
+    fn from_buff(buff: &[u8]) -> Result<Self, NetCommsError>
+    where
+            Self: Sized {
 
         // Check if buffer has valid length(at least 2).
         match buff.get(1) {
@@ -78,6 +87,25 @@ impl FromBuffer for PacketKind {
             _ => PacketKind::Unknown,  
         };
 
-        Ok(kind)   
-    }      
+        Ok(kind)  
+    }
+}
+
+impl IntoBytes for PacketKind {
+
+    fn into_bytes(self) -> Bytes {
+        
+        let mut bytes = Bytes::new();
+
+        match self {
+            PacketKind::Empty => bytes.append(&mut Bytes::from_arr([0, 0])),
+            PacketKind::MetaData => bytes.append(&mut Bytes::from_arr([1, 0])),
+            PacketKind::MetaDataEnd => bytes.append(&mut Bytes::from_arr([1, 1])),
+            PacketKind::Content => bytes.append(&mut Bytes::from_arr([2, 0])),
+            PacketKind::End => bytes.append(&mut Bytes::from_arr([3, 0])),
+            PacketKind::Unknown => bytes.append(&mut Bytes::from_arr([255, 0])),
+        }
+
+        bytes
+    }
 }

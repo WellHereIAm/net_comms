@@ -2,7 +2,7 @@ use serde::{Serialize, Deserialize};
 use ron::ser;
 use ron::de;
 
-use crate::error::{NetCommsError, NetCommsErrorKind};
+use library::error::{NetCommsError, NetCommsErrorKind};
 use crate::config::{UNKNOWN_USER_ID, UNKNOWN_USERNAME};
 
 

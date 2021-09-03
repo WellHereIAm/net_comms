@@ -1,0 +1,1 @@
+(kind:Empty,metadata:(message_kind:Request,message_length:3,datetime:([0,0,0,0,97,49,216,249]),author_id:1,author_username:"UNKNOWN",recipient_id:0,recipients:["SERVER"],file_name:None),content:("Register((username:\"man\",password:\"pass\"))"),end_data:(size:4,kind:End,content:([])))

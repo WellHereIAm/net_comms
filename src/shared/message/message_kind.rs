@@ -1,7 +1,7 @@
 use serde::{Serialize, Deserialize};
 
+use library::bytes::{Bytes, FromBytes, IntoBytes};
 use library::message::MessageKindType;
-use library::buffer::{IntoBuffer, FromBuffer};
 use library::error::{NetCommsError, NetCommsErrorKind};
 use library::ron::{FromRon, IntoRon};
 
@@ -16,14 +16,21 @@ pub enum MessageKind {
     Unknown,
 }
 
-impl MessageKindType for MessageKind {}
+impl Default for MessageKind {
 
-impl FromRon for MessageKind {}
+    fn default() -> Self {
+        MessageKind::Empty
+    }
+}
+
+impl MessageKindType<'_> for MessageKind {}
+
+impl FromRon<'_> for MessageKind {}
 impl IntoRon for MessageKind {}
 
-impl IntoBuffer for MessageKind {
+impl IntoBytes for MessageKind {
 
-    fn into_buff(self) -> Result<Vec<u8>, NetCommsError> {
+    fn into_bytes(self) -> Bytes {
 
         let msg_kind = match self {
             MessageKind::Empty => [0_u8, 0_u8],
@@ -33,14 +40,40 @@ impl IntoBuffer for MessageKind {
             MessageKind::SeverReply => [4_u8, 0_u8],
             MessageKind::Unknown => [255_u8, 0_u8],
         };
-        Ok(msg_kind.to_vec())
-    }    
+
+        Bytes::from_arr(msg_kind)
+    }
 }
 
-impl FromBuffer for MessageKind {
-    
-    fn from_buff(buff: Vec<u8>) -> Result<MessageKind, NetCommsError> {
+impl FromBytes for MessageKind {
 
+    fn from_bytes(bytes: Bytes) -> Result<Self, NetCommsError>
+    where
+            Self: Sized {
+        
+        // Check if buffer has valid length(at least 2, anything beyond that is discarded.).
+        if None == bytes.get(1) {
+            return Err(NetCommsError::new(
+                NetCommsErrorKind::InvalidBufferSize,
+                Some("Implementation from_buff for MessageKind requires buffer of length of at least 2 bytes.".to_string())))
+        }
+
+        let msg_kind = match bytes[0] {
+            0 => MessageKind::Empty,
+            1 => MessageKind::Request,
+            2 => MessageKind::Text,
+            3 => MessageKind::File,
+            4 => MessageKind::SeverReply,
+            _ => MessageKind::Unknown,            
+        }; 
+        
+        Ok(msg_kind)
+    }
+
+    fn from_buff(buff: &[u8]) -> Result<Self, NetCommsError>
+    where
+            Self: Sized {
+        
         // Check if buffer has valid length(at least 2, anything beyond that is discarded.).
         if None == buff.get(1) {
             return Err(NetCommsError::new(
@@ -57,6 +90,6 @@ impl FromBuffer for MessageKind {
             _ => MessageKind::Unknown,            
         }; 
         
-        Ok(msg_kind)
+        Ok(msg_kind)         
     }
 }
