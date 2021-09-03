@@ -2,7 +2,7 @@ use library::bytes::{Bytes, FromBytes, IntoBytes};
 use serde::{Serialize, Deserialize};
 
 use library::ron::{FromRon, IntoRon};
-use library::message::{Message, IntoMessage, MessageKindType, MetaDataType, ContentType};
+use library::message::{Message, IntoMessage, MetaDataType, ContentType};
 use library::error::NetCommsError;
 use library::packet::{Packet, PacketKind};
 
@@ -46,7 +46,7 @@ pub enum RequestRaw {
     Unknown(User),    
 }
 
-impl IntoMessage<'_, MessageKind, MetaData, Content> for RequestRaw {
+impl IntoMessage<'_, MetaData, Content> for RequestRaw {
     
     fn into_message(self) -> Result<ImplementedMessage, NetCommsError> {
 

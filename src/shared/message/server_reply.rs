@@ -39,7 +39,7 @@ pub enum ServerReplyRaw {
     User(User, User),
 }
 
-impl IntoMessage<'_, MessageKind, MetaData, Content> for ServerReplyRaw {
+impl IntoMessage<'_, MetaData, Content> for ServerReplyRaw {
 
     fn into_message(self) -> Result<ImplementedMessage, NetCommsError> {
 

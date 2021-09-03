@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use crate::error::NetCommsError;
 use crate::packet::Packet;
 use crate::ron::{FromRon, IntoRon};
-use crate::message::{Message, MessageKindType, MetaDataType};
+use crate::message::{Message, MetaDataType};
 
 pub trait ContentType<'a, M, C>:
     Default + Clone + Display + Debug + FromRon<'a> + IntoRon 

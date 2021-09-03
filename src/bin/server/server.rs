@@ -241,8 +241,9 @@ impl Server {
                 thread::Builder::new().name("connection".to_string()).spawn(move || {
                     match Message::receive(&mut stream, Some(location)) {
                         Ok(message) => {
-                            output.send(Output::FromRun(message.clone().into_ron_pretty(None).unwrap())).unwrap();
-                            match message.kind() {
+                            let metadata: MetaData = message.metadata();
+                            let message_kind: MessageKind = metadata.message_kind();
+                            match message_kind {
                                 MessageKind::Text | MessageKind::File => {
                                     let _ = Self::receive_user_to_user_message(message, waiting_messages, users, output.clone());      
                                 },

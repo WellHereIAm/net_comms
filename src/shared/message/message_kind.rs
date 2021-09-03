@@ -1,7 +1,6 @@
 use serde::{Serialize, Deserialize};
 
 use library::bytes::{Bytes, FromBytes, IntoBytes};
-use library::message::MessageKindType;
 use library::error::{NetCommsError, NetCommsErrorKind};
 use library::ron::{FromRon, IntoRon};
 
@@ -22,8 +21,6 @@ impl Default for MessageKind {
         MessageKind::Empty
     }
 }
-
-impl MessageKindType<'_> for MessageKind {}
 
 impl FromRon<'_> for MessageKind {}
 impl IntoRon for MessageKind {}

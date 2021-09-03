@@ -30,7 +30,7 @@ pub enum Command {
     Unknown
 }
 
-impl IntoMessage<'_, MessageKind, MetaData, Content> for Command {
+impl IntoMessage<'_, MetaData, Content> for Command {
     
     fn into_message(self) -> Result<ImplementedMessage, library::prelude::NetCommsError> {
         match self {

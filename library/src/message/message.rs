@@ -97,9 +97,7 @@ where
 
         // Write all content packets to stream.
         for packet_content in content_split.into_iter() {
-            println!("{:?}", &packet_content);
             let packet = Packet::new(PacketKind::Content, packet_content);
-            println!("{:?}", &packet);
             packet.send(stream)?;
         }
 

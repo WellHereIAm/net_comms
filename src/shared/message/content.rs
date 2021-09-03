@@ -11,6 +11,8 @@ use library::error::NetCommsErrorKind;
 use library::ron::FromRon;
 use library::{message::{ContentType}, packet::Packet, prelude::{IntoRon, Message, NetCommsError}};
 
+use crate::ImplementedMessage;
+
 use super::{message_kind::MessageKind, metadata::MetaData};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -57,18 +59,18 @@ impl FromBytes for Content {
 }
 
 
-impl ContentType<'_, MessageKind, MetaData, Content> for Content {
+impl ContentType<'_, MetaData, Content> for Content {
     
     fn send(self, stream: &mut TcpStream, metadata: MetaData) -> Result<(), NetCommsError> {
 
         match metadata.file_name() {
             Some(file_name) => {
                 let path = Path::new(&file_name);
-                Message::<MessageKind, MetaData, Content>::send_file(stream, path)?;
+                ImplementedMessage::send_file(stream, path)?;
             }
             None => {
                 let bytes = self.0.as_bytes().to_vec().into_bytes();
-                Message::<MessageKind, MetaData, Content>::send_content(stream, bytes)?
+                ImplementedMessage::send_content(stream, bytes)?
             },
         }
 
@@ -76,7 +78,7 @@ impl ContentType<'_, MessageKind, MetaData, Content> for Content {
     }
 
     fn receive(stream: &mut TcpStream,
-               message: &mut Message<MessageKind, MetaData, Content>,
+               message: &mut Message<MetaData, Content>,
                path: Option<PathBuf>) -> Result<(Self, Packet), NetCommsError> {
 
         let path = path.unwrap();
@@ -91,7 +93,7 @@ impl ContentType<'_, MessageKind, MetaData, Content> for Content {
 
         let (content, end_data) = match message.metadata().message_kind() {
             MessageKind::File => {
-                let (_, end_data) = Message::<MessageKind, MetaData, Content>::receive_file(
+                let (_, end_data) = ImplementedMessage::receive_file(
                     stream,
                     &path,
                     message
@@ -102,7 +104,7 @@ impl ContentType<'_, MessageKind, MetaData, Content> for Content {
                 (Content::new(), end_data)
             }
             _ => {
-                let (bytes, end_data) = Message::<MessageKind, MetaData, Content>::receive_content(stream)?;
+                let (bytes, end_data) = ImplementedMessage::receive_content(stream)?;
                 let content = Content::with_data(bytes.to_string());
                 (content, end_data)
             }

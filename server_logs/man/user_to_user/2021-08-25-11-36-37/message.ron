@@ -1,1 +1,0 @@
-(kind:Text,metadata:(message_kind:Text,message_length:3,datetime:[0,0,0,0,97,38,43,69],author_id:2,author_username:"man",recipient_id:0,recipients:["man"],file_name:None),content:[(size:29,kind:Content,content:[72,101,108,108,111,32,116,104,101,114,101,44,32,104,111,119,32,97,114,101,32,121,111,117,63])],end_data:(size:4,kind:End,content:[]))

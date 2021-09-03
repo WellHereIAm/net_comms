@@ -70,7 +70,9 @@ fn get_user(user: &User) -> Result<User, NetCommsError> {
         Ok(mut stream) => {
             request.send(&mut stream)?;
             let msg = ImplementedMessage::receive(&mut stream, Some(location.to_path_buf()))?;
-            match msg.kind() {
+            let metadata = msg.metadata();
+            let message_kind = metadata.message_kind();
+            match message_kind {
                 MessageKind::SeverReply => {
                     let server_reply = ServerReply::from_ron(&String::from_buff(&msg.content_move().into_buff())?)?;
                     if let ServerReply::User(user) = server_reply {
@@ -106,16 +108,18 @@ fn get_waiting_messages(user: User, socket: String, _mpsc_transmitter: Sender<Im
                         match ImplementedMessage::receive(&mut stream, Some(location.to_path_buf())) {
                             Ok(message) => {
 
+                                let metadata = message.metadata();
+                                let message_kind = metadata.message_kind();         
+
                                 let message_pretty = message.into_ron_pretty(None).unwrap();
                                 let mut file = fs::File::create("received_message.ron").unwrap();
                                 file.write_all(&message_pretty.into_buff()).unwrap();
-
 
                                 // Why use multiple statements, when I can use one :D
                                 println!("{author} [{datetime}]: {content}",
                                     author = message.metadata().author_username(),
                                     datetime = message.metadata().datetime_as_string(),
-                                    content = match message.kind() {
+                                    content = match message_kind {
                                         MessageKind::File => format!("Received a file {name} at {location}",
                                                                         name = PathBuf::from(message.metadata().file_name().unwrap()).file_name().unwrap().to_string_lossy(),
                                                                         location = PathBuf::from(message.metadata().file_name().unwrap()).to_string_lossy()
