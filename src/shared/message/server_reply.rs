@@ -19,6 +19,7 @@ use crate::MetaData;
 use crate::config::SERVER_ID;
 use crate::config::SERVER_USERNAME;
 use crate::user::User;
+use crate::user::UserLite;
 
 /// Enum of all possible replies from server to client.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,7 +27,7 @@ pub enum ServerReply {
     /// Used when returning an error, [String] inside holds an error message.
     Error(String), // Later this string should be changed to use some kind of error enum, so client can recover from it.
     /// Used when there was a successful [Request::Register](crate::request::Request::Register) or [Request::Login](crate::request::Request::Login).
-    User(User),
+    User(UserLite),
 }
 
 impl IntoRon for ServerReply {}
@@ -34,9 +35,9 @@ impl FromRon<'_> for ServerReply {}
 
 pub enum ServerReplyRaw {
     /// Used when returning an error, [String] inside holds an error message.
-    Error(String, User), // Later this string should be changed to use some kind of error enum, so client can recover from it.
+    Error(String, UserLite), // Later this string should be changed to use some kind of error enum, so client can recover from it.
     /// Used when there was a successful [Request::Register](crate::request::Request::Register) or [Request::Login](crate::request::Request::Login).
-    User(User, User),
+    User(UserLite, UserLite),
 }
 
 impl IntoMessage<'_, MetaData, Content> for ServerReplyRaw {
@@ -62,9 +63,10 @@ impl IntoMessage<'_, MetaData, Content> for ServerReplyRaw {
         let recipients = vec![recipient.username()];
         let file_name = None;
 
-        let server = User::new(SERVER_ID, SERVER_USERNAME.to_string(), "some".to_string());
-
-        let metadata = MetaData::new(&content_buff, message_kind, server, recipient.id(), recipients, file_name)?;
+        let metadata = MetaData::new(&content_buff, message_kind,
+                                                UserLite::default_server(),
+                                                recipient.id(), recipients,
+                                                file_name)?;
         message.set_metadata(metadata);
 
         message.set_content(Content::from_bytes(content_buff)?);

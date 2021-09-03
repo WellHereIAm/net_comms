@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use library::{bytes::IntoBytes, error::{NetCommsError, NetCommsErrorKind}};
-use shared::{MessageKind, user::{User, UserUnchecked}};
+use shared::{MessageKind, user::{User, UserUnchecked, user::UserLite}};
 use utils::input;
 
 use super::Command;
@@ -82,7 +82,7 @@ impl CommandRaw {
     /// * Usual cause of error inside this method is [InvalidCommand](NetCommsErrorKind::InvalidCommand) or [UnknownCommand](NetCommsErrorKind::UnknownCommand)
     /// which are caused by user invalid user input, those are recoverable errors.
     /// * This can also return other [NetCommsError].
-    pub fn process(mut self, user: &User) -> Result<Command, NetCommsError> {
+    pub fn process(mut self, user: UserLite) -> Result<Command, NetCommsError> {
 
         // Match for known commands.
         match self.vec.get_mut(0) {
@@ -115,7 +115,7 @@ impl CommandRaw {
                         };
                     },
                     "send" => {
-                        let send_cmd = CommandRaw::check_send(self, &user)?;
+                        let send_cmd = CommandRaw::check_send(self, user)?;
                         return Ok(send_cmd)
                     },
                     _ => {
@@ -208,7 +208,7 @@ impl CommandRaw {
     }
 
     /// Checks if given command is valid send command.
-    fn check_send(cmd: CommandRaw, user: &User) -> Result<Command, NetCommsError> {
+    fn check_send(cmd: CommandRaw, user: UserLite) -> Result<Command, NetCommsError> {
 
         let mut cmd_iter = cmd.vec.iter();
         

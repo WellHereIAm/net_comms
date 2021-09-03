@@ -1,22 +1,22 @@
 use library::{bytes::{Bytes, IntoBytes}, error::{NetCommsError, NetCommsErrorKind}, prelude::{IntoMessage, IntoRon, Packet, PacketKind}};
-use shared::{Content, ImplementedMessage, MessageKind, MetaData, Request, config::{SERVER_ID, SERVER_USERNAME}, user::{User, UserUnchecked}};
+use shared::{Content, ImplementedMessage, MessageKind, MetaData, Request, config::{SERVER_ID, SERVER_USERNAME}, user::{User, UserLite, UserUnchecked}};
 
 
 # [derive(Debug)]
 pub enum Command {
     /// Command containing [UserUnchecked] with username and password that is user attempting to use to register.
     /// [User] is usually a default user.
-    Register(UserUnchecked, User),
+    Register(UserUnchecked, UserLite),
 
     /// Command containing [UserUnchecked] with username and password that is user attempting to use to login.
     /// [User] is usually a default user.
-    Login(UserUnchecked, User),
+    Login(UserUnchecked, UserLite),
 
     /// Command containing the [User] that used this command.
-    Yes(User),
+    Yes(UserLite),
 
     /// Command containing the [User] that used this command.
-    No(User),
+    No(UserLite),
 
     /// Command that is containing all necessary information to construct a [Message](crate::message::Message). 
     /// * [MessageKind]
@@ -24,7 +24,7 @@ pub enum Command {
     /// * [Vec<String>] -- recipients of this [Message](crate::message::Message).
     /// * [Vec<u8>] -- content of this [Message](crate::message::Message).
     /// * [Option<String>] -- information if content of this [Message](crate::message::Message) is a file.
-    Send(MessageKind, User, Vec<String>, Vec<u8>, Option<String>), 
+    Send(MessageKind, UserLite, Vec<String>, Vec<u8>, Option<String>), 
 
     /// Used to signalize that created command is an unknown command.
     Unknown
@@ -54,7 +54,7 @@ impl IntoMessage<'_, MetaData, Content> for Command {
 
 /// Creates a [Message] from [Command::Send].
 fn from_send(message_kind: MessageKind,
-             author: User, recipients: Vec<String>,
+             author: UserLite, recipients: Vec<String>,
              content: Bytes, file_name: Option<String>) -> Result<ImplementedMessage, NetCommsError> {
 
     let mut message = ImplementedMessage::new();
@@ -72,7 +72,7 @@ fn from_send(message_kind: MessageKind,
 }
 
 /// Creates a [Message] from [Command::Register]. Used inside [Message::from_command].
-fn from_register(user_unchecked: UserUnchecked, author: User) -> Result<ImplementedMessage, NetCommsError> {
+fn from_register(user_unchecked: UserUnchecked, author: UserLite) -> Result<ImplementedMessage, NetCommsError> {
 
     let mut message = ImplementedMessage::new();
 
@@ -97,7 +97,7 @@ fn from_register(user_unchecked: UserUnchecked, author: User) -> Result<Implemen
 }
 
 /// Creates a [Message] from [Command::Login]. Used inside [Message::from_command].
-fn from_login(user_unchecked: UserUnchecked, author: User) -> Result<ImplementedMessage, NetCommsError> {
+fn from_login(user_unchecked: UserUnchecked, author: UserLite) -> Result<ImplementedMessage, NetCommsError> {
 
     let mut message = ImplementedMessage::new();
 

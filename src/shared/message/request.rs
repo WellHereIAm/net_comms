@@ -8,7 +8,7 @@ use library::packet::{Packet, PacketKind};
 
 use crate::config::{SERVER_ID, SERVER_USERNAME};
 use crate::message::{MessageKind, MetaData, Content};
-use crate::user::{User, UserUnchecked};
+use crate::user::{User, UserLite, UserUnchecked};
 
 use crate::ImplementedMessage;
 
@@ -34,16 +34,16 @@ impl FromRon<'_> for Request {}
 
 pub enum RequestRaw {
     /// Request to login with [UserUnchecked] inside.
-    Login(UserUnchecked, User),
+    Login(UserUnchecked, UserLite),
 
     /// Request to register with [UserUnchecked] inside.
-    Register(UserUnchecked, User),
+    Register(UserUnchecked, UserLite),
 
     /// Request to get any [messages](crate::message::Message) that were sent to requesting client.
-    GetWaitingMessagesAuto(User),
+    GetWaitingMessagesAuto(UserLite),
 
     /// Used if some method fails to recognize the [Request].
-    Unknown(User),    
+    Unknown(UserLite),    
 }
 
 impl IntoMessage<'_, MetaData, Content> for RequestRaw {

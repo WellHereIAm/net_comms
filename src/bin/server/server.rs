@@ -18,7 +18,7 @@ use library::ron::{FromRon, IntoRon};
 use library::message::Message;
 
 use shared::message::{Content, MessageKind, MetaData, ServerReply, ServerReplyRaw};
-use shared::user::{User, UserUnchecked};
+use shared::user::{Password, User, UserLite, UserUnchecked};
 use shared::config::{SERVER_ID, UNKNOWN_USERNAME, UNKNOWN_USER_ID};
 
 use utils::input;
@@ -323,7 +323,7 @@ impl Server {
                        ids: Arc<Mutex<Vec<u32>>>,
                        output: Sender<Output>) {
 
-        let author = User::new(message.metadata().author_id(), message.metadata().author_username(), "Dummy".to_string());
+        let author = UserLite::new(message.metadata().author_id(), message.metadata().author_username());
         let request = Request::from_ron(&String::from_buff(&message.content_move().into_buff()).unwrap()).unwrap();
 
         match request {
@@ -346,10 +346,9 @@ impl Server {
                      user_unchecked: UserUnchecked,
                      output: Sender<Output>) {
 
-        let username = user_unchecked.username;
-        let password = user_unchecked.password;
+        let UserUnchecked {username, password} = user_unchecked;
 
-        let default_user = User::new(UNKNOWN_USER_ID, UNKNOWN_USER_ID.to_string(), "Some".to_string());
+        let default_user = UserLite::default_user();
 
         let mut users_guard = match users.lock() {
             Ok(guard) => guard,
@@ -387,12 +386,15 @@ impl Server {
                 }
                 drop(ids_guard);
                 
-                let user = User::new(id as u32, username, password); 
+                let user = User::new(id as u32, username, Password::new(password)); 
+                output.send(Output::FromRun(user.clone().into_ron_pretty(None).unwrap())).unwrap();
+                let user_lite = UserLite::from_user(&user);
                 
-                users_guard.insert(user.username().clone(), user.clone());
+                users_guard.insert(user.username(), user);
                 drop(users_guard);
 
-                let server_reply = ServerReplyRaw::User(user, default_user);
+
+                let server_reply = ServerReplyRaw::User(user_lite, default_user);
                 let message = server_reply.into_message().unwrap();
                 if let Err(e) =  message.send(&mut stream) {
                     let err_content = format!(indoc!{
@@ -422,9 +424,9 @@ impl Server {
 
         match users_guard.get(&username) {
             Some(user) => {
-                if password == user.password() {
-                    let default_user = User::new(UNKNOWN_USER_ID, UNKNOWN_USER_ID.to_string(), "Some".to_string());
-                    let server_reply = ServerReplyRaw::User(user.clone(), default_user);
+                if user.verify(password) {
+                    let default_user = UserLite::default_user();
+                    let server_reply = ServerReplyRaw::User(UserLite::from_user(user), default_user);
                     let message = server_reply.into_message().unwrap();
                     if let Err(e) =  message.send(&mut stream) {
                         let err_content = format!(indoc!{
@@ -438,7 +440,7 @@ impl Server {
                         output.send(Output::Error(err_content)).unwrap();
                     }
                 } else {
-                    let default_user = User::new(UNKNOWN_USER_ID, UNKNOWN_USER_ID.to_string(), "Some".to_string());
+                    let default_user = UserLite::default_user();
                     let server_reply = ServerReplyRaw::Error("Incorrect password.".to_string(), default_user);
                     let message = server_reply.into_message().unwrap();
                     if let Err(e) =  message.send(&mut stream) {
@@ -456,7 +458,7 @@ impl Server {
                 }
             },
             None => {
-                let default_user = User::new(UNKNOWN_USER_ID, UNKNOWN_USER_ID.to_string(), "Some".to_string());
+                let default_user = UserLite::default_user();
                 let server_reply = ServerReplyRaw::Error(format!("User with username: {} does not exist", username), default_user);
                 let message = server_reply.into_message().unwrap();
 
@@ -476,7 +478,8 @@ impl Server {
         }
     }
 
-    fn return_waiting_messages(mut stream: TcpStream, waiting_messages: Arc<Mutex<HashMap<u32, Vec<ImplementedMessage>>>>, author: User,
+    fn return_waiting_messages(mut stream: TcpStream, waiting_messages: Arc<Mutex<HashMap<u32, Vec<ImplementedMessage>>>>,
+                               author: UserLite,
                                output: Sender<Output>) {
 
         let mut waiting_messages_guard = match waiting_messages.lock() {

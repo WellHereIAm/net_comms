@@ -2,11 +2,12 @@
     "cSpell.words": [
         "Backtrace",
         "Comms",
-        "chrono",
         "datetime",
+        "chrono",
         "itertools",
         "nonblocking",
         "paks",
+        "Pbkdf",
         "rqst",
         "starpak",
         "steamapps",

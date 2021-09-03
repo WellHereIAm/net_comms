@@ -2,5 +2,5 @@
     ip: "127.0.0.1",
     port: 8000,
     maximum_active_connections: 100,
-    save_location: "D:\\stepa\\Documents\\Rust\\net_comms\\server_logs",
+    save_location: "D:\\stepa\\Documents\\Rust\\net_comms_logs\\server_logs",
 )

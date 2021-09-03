@@ -1,12 +1,6 @@
-MetaData in library will be only  a trait MetaData: ToRon + FromRon
-
-
-
 1. Create Client struct similar to Server.
 2. Concepts:
     Create some File struct to be hold inside new MetaData is_file field.
-    Give PacketKind::End data, just for sake of doing it.
-    Move Message::datetime_as_string to MetaData struct.
     Create some UserLite struct to hold only needed user data, without password etc. , just what´s needed.
    
 3. Move whole command module to client as it is client only, create for server similar one.

@@ -12,7 +12,7 @@ use library::ron::{IntoRon, FromRon};
 use library::packet::{Packet, PacketKind};
 
 use super::message_kind::MessageKind;
-use crate::user::User;
+use crate::user::{User, UserLite};
 
 
 /// This struct holds metadata of each [Message].
@@ -177,7 +177,7 @@ impl MetaData {
     /// # Errors
     /// This method should not return an error.
     pub fn new(content: &Bytes,
-           message_kind: MessageKind, author: User,
+           message_kind: MessageKind, author: UserLite,
            recipient_id: u32, recipients: Vec<String>,
            file_name: Option<String>) -> Result<MetaData, NetCommsError> {
 

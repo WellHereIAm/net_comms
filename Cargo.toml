@@ -21,3 +21,6 @@ chrono = "0.4.19"
 serde = { version = "1.0", features = ["derive"] }
 ron = "*"
 indoc = "1.0.3"
+
+pbkdf2 = "0.9"
+rand_core = { version = "0.6", features = ["std"] }
