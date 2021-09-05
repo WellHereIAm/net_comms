@@ -2,11 +2,13 @@ use chrono::{DateTime, Utc};
 
 use crate::bytes::Bytes;
 
+/// Allows all implementors perform conversion from `Self` into [Bytes]. 
 pub trait IntoBytes {
 
-    /// Some test text
+    /// Performs a conversion from `Self` into [Bytes].
     fn into_bytes(self) -> Bytes;
 
+    /// Uses [into_bytes](IntoBytes::into_bytes) to convert `Self` into [Vec] of [u8].
     fn into_buff(self) -> Vec<u8> 
     where
         Self: Sized {

@@ -124,6 +124,22 @@ impl NetCommsError {
                     None => write!(f, "NetCommsError(Invalid Packet Kind)"),
                 }
             },
+            NetCommsErrorKind::UnknownPacketKind => {
+                match &self.message {
+                    Some(message) => write!(f, 
+                        indoc! {
+                        "
+                        \n
+                        NetCommsError(Unknown Packet Kind):\n
+                        {}\n
+                        source:\n
+                        {:?}
+                        "
+                        }
+                        , message, self.backtrace),
+                    None => write!(f, "NetCommsError(Unknown Packet Kind)"),
+                }
+            },
             NetCommsErrorKind::SerializingFailed => {
                 match &self.message {
                     Some(message) => write!(f, 

@@ -3,7 +3,7 @@ use library::bytes::FromBytes;
 use library::bytes::IntoBytes;
 use library::prelude::FromRon;
 use library::prelude::IntoMessage;
-use library::prelude::IntoRon;
+use library::prelude::ToRon;
 use library::prelude::Packet;
 use library::prelude::PacketKind;
 use serde::{Serialize, Deserialize};
@@ -30,7 +30,7 @@ pub enum ServerReply {
     User(UserLite),
 }
 
-impl IntoRon for ServerReply {}
+impl ToRon for ServerReply {}
 impl FromRon<'_> for ServerReply {}
 
 pub enum ServerReplyRaw {
@@ -55,7 +55,7 @@ impl IntoMessage<'_, MetaData, Content> for ServerReplyRaw {
 
         let mut message = ImplementedMessage::new();
 
-        let content = Content::with_data(server_reply.into_ron()?);
+        let content = Content::with_data(server_reply.to_ron()?);
         let content_buff = content.into_bytes();
 
         // Recipient of Request will always be a server.

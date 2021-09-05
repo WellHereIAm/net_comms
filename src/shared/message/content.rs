@@ -9,7 +9,7 @@ use std::fs::{self, OpenOptions};
 use library::bytes::{Bytes, FromBytes, IntoBytes};
 use library::error::NetCommsErrorKind;
 use library::ron::FromRon;
-use library::{message::{ContentType}, packet::Packet, prelude::{IntoRon, Message, NetCommsError}};
+use library::{message::{ContentType}, packet::Packet, prelude::{ToRon, Message, NetCommsError}};
 
 use crate::ImplementedMessage;
 
@@ -26,7 +26,7 @@ impl Default for Content {
 }
 
 impl FromRon<'_> for Content {}
-impl IntoRon for Content {}
+impl ToRon for Content {}
 
 impl Display for Content {
     
@@ -78,26 +78,18 @@ impl ContentType<'_, MetaData, Content> for Content {
     }
 
     fn receive(stream: &mut TcpStream,
-               message: &mut Message<MetaData, Content>,
+               metadata: &MetaData,
                path: Option<PathBuf>) -> Result<(Self, Packet), NetCommsError> {
 
         let path = path.unwrap();
-        let mut path = message.metadata().get_message_location(&path);
+        let path = metadata.get_message_location(&path);
 
-        if let Err(e) = fs::create_dir_all(&path) {
-            return Err(NetCommsError::new(
-                NetCommsErrorKind::CreatingDirFailed,
-                Some(format!("Could not create a directory on {}. \n({})",
-                                     &path.parent().unwrap().to_str().unwrap(), e))));
-        }
-
-        let (content, end_data) = match message.metadata().message_kind() {
+        let (content, end_data) = match metadata.message_kind() {
             MessageKind::File => {
                 let (_, end_data) = ImplementedMessage::receive_file(
                     stream,
                     &path,
-                    message
-                                .metadata_ref()
+                    metadata
                                 .file_name()
                                 .unwrap()
                 )?;
@@ -109,15 +101,7 @@ impl ContentType<'_, MetaData, Content> for Content {
                 (content, end_data)
             }
         };
-
-        message.set_content(content.clone());
-        message.set_end_data(end_data.clone());
-
-        let message_ron = message.into_ron()?;        
-        path.push("message.ron");
-        let mut file = fs::OpenOptions::new().create(true).write(true).open(path).unwrap();
-        file.write_fmt(format_args!("{}", message_ron)).unwrap();
-
+        
         Ok((content, end_data))
     }
 }

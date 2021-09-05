@@ -8,7 +8,7 @@ use std::net::TcpStream;
 use crate::bytes::{Bytes, FromBytes, IntoBytes};
 use crate::error::{NetCommsError, NetCommsErrorKind};
 use crate::packet::PacketKind;
-use crate::ron::{IntoRon, FromRon};
+use crate::ron::{ToRon, FromRon};
 
 
 /// Minimal number of bytes that is every packet guaranteed to have, 2 bytes are for its size and 2 for its kind.
@@ -23,7 +23,7 @@ pub const PACKET_DESCRIPTION_SIZE: u16 = 4;
 /// This also should be declared only once at the start of an application, or even better in some sort of config.
 static mut MAX_PACKET_SIZE: u16 = 1024;
 
-/// Gives structure to data to be sent or received from stream.
+/// Gives structure to data to be sent or received from `stream`.
 ///
 /// [Packet] is the lowest abstraction above buffer in this library.
 ///
@@ -39,7 +39,7 @@ pub struct Packet {
     content: Bytes,
 }
 
-impl IntoRon for Packet {}
+impl ToRon for Packet {}
 impl FromRon<'_> for Packet {}
 
 impl Default for Packet {
@@ -63,7 +63,7 @@ impl FromBytes for Packet {
         if let None = bytes.get((PACKET_DESCRIPTION_SIZE - 1) as usize) {
             return Err(NetCommsError::new(
                 NetCommsErrorKind::InvalidBufferSize,
-                Some("Implementation FromBytes for Packet requires buffer of length of at least 4 bytes.".to_string())));
+                Some("Implementation FromBytes::from_bytes for Packet requires buffer of length of at least 4 bytes.".to_string())));
         }
 
         let size = bytes.len();
@@ -85,7 +85,7 @@ impl FromBytes for Packet {
         if let None = buff.get((PACKET_DESCRIPTION_SIZE - 1) as usize) {
             return Err(NetCommsError::new(
                 NetCommsErrorKind::InvalidBufferSize,
-                Some("Implementation from_buff for Packet requires buffer of length of at least 4 bytes.".to_string())));
+                Some("Implementation FromBytes::from_buff for Packet requires buffer of length of at least 4 bytes.".to_string())));
         }
 
         let size = buff.len();
@@ -121,7 +121,7 @@ impl Packet {
 
     /// Creates a new [Packet].
     ///
-    /// Size of packet is derived from [`kind`](PacketKind) and `content` given.
+    /// Size of packet is derived from `content`.
     ///
     /// # Examples
     /// End packet at the end of the [Message](crate::message::Message) is created like that.
@@ -143,6 +143,9 @@ impl Packet {
         }
     }
 
+    /// Sends `self` via `stream`.
+    ///
+    /// This takes ownership of `self`.
     pub fn send(self, stream: &mut TcpStream) -> Result<(), NetCommsError> {
 
         let packet_buff = self.into_bytes().into_vec();        
@@ -153,13 +156,14 @@ impl Packet {
             return Err(NetCommsError::new(
                 NetCommsErrorKind::WritingToStreamFailed,
                 Some(format!("Failed to write packet to stream.\n{}\n{}",
-                                        packet.into_ron_pretty(None)?,
+                                        packet.to_ron_pretty(None)?,
                                         e))));
         }
 
         Ok(())
     }
 
+    /// Receives a [Packet] from `stream`.
     pub fn receive(stream: &mut TcpStream) -> Result<Packet, NetCommsError> {
         
         // Reads the size of packet.
@@ -189,6 +193,7 @@ impl Packet {
         Ok(Packet::from_buff(&buff)?)
     }
 
+    /// Returns number of packets needed to send data with given byte `length`.
     pub fn number_of_packets(length: usize) -> u32 {
 
         // Get number of packets by dividing by MAX_PACKET_CONTENT_SIZE.
@@ -200,6 +205,7 @@ impl Packet {
         number_of_packets as u32
     }
 
+    /// Takes [Bytes] and returns [Vec] of [Bytes] each with maximum length of [MAX_CONTENT_SIZE](Packet::max_content_size).
     pub fn split_to_max_packet_size(buffer: Bytes) -> Vec<Bytes> {
 
         // This splits given buffer to multiple owned chunks with chunks method from itertools crate,
@@ -234,30 +240,39 @@ impl Packet {
         self.content.clone()
     }
 
+    /// Returns a reference to `content`.
     pub fn content_ref<'a>(&'a self) -> &'a Bytes {
         &self.content
     }
 
+    /// Returns a mutable reference to `content`.
     pub fn content_mut<'a>(&'a mut self) -> &'a mut Bytes {
         &mut self.content
     }
 
-    /// Consumes `self` and returns `content`.
+    /// Takes ownership of `self` and returns `content`.
     pub fn content_move(self) -> Bytes {
         self.content
     }
 
-    pub unsafe fn max_size() -> u16 {
-        MAX_PACKET_SIZE
+    /// Returns maximum size of packet, from [MAX_PACKET_SIZE].
+    ///
+    /// It is a wrapper around an [unsafe] operation, since [MAX_PACKET_SIZE] is a mutable [static].
+    pub fn max_size() -> u16 {
+        unsafe { MAX_PACKET_SIZE }
     }
 
+    /// Sets [MAX_PACKET_SIZE] to `size`.
+    ///
+    /// Should be used only once at start of the program to declare maximum size of packets or checks 
+    /// need to be done to ensure that it is not already accessed elsewhere. 
     pub unsafe fn set_max_size(size: u16) {
         MAX_PACKET_SIZE = size
     }
 
     /// Maximum amount of bytes that a [Packet] can use for its content, its lower than [MAX_PACKET_SIZE] by [PACKET_DESCRIPTION_SIZE].
     ///
-    /// It is an [unsafe] operation since it does access a [mutable](mut) [static]
+    /// It is a wrapper around an [unsafe] operation since it does access a [mutable](mut) [static].
     pub fn max_content_size() -> u16 {
         unsafe { MAX_PACKET_SIZE - PACKET_DESCRIPTION_SIZE }
     }

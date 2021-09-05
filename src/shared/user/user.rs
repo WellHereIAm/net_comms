@@ -1,7 +1,7 @@
 use std::hash::Hash;
 
 use library::prelude::FromRon;
-use library::prelude::IntoRon;
+use library::prelude::ToRon;
 use pbkdf2::Pbkdf2;
 use pbkdf2::password_hash::PasswordHash;
 use pbkdf2::password_hash::PasswordHasher;
@@ -122,7 +122,7 @@ pub struct User {
 }
 
 impl FromRon<'_> for User {}
-impl IntoRon for User {}
+impl ToRon for User {}
 
 
 impl User {

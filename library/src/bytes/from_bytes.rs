@@ -4,11 +4,21 @@ use crate::error::{NetCommsError, NetCommsErrorKind};
 
 use crate::bytes::Bytes;
 
+/// Allows all implementors perform conversion from [Bytes] and [slice] of [u8] into `Self`. 
 pub trait FromBytes {
+
+    /// Converts [`bytes`](Bytes) into `Self`.
+    ///
+    /// # Errors
+    /// * This operation can fail if given `bytes` are not valid data to create `Self`
     fn from_bytes(bytes: Bytes) -> Result<Self, NetCommsError>
     where
         Self: Sized;
     
+    /// Converts `buff` into `Self`.
+    ///
+    /// # Errors
+    /// * This operation can fail if given `bytes` are not valid data to create `Self`
     fn from_buff(buff: &[u8]) -> Result<Self, NetCommsError>
     where
         Self: Sized;
@@ -22,7 +32,7 @@ impl FromBytes for usize {
         if None == bytes.get(7) {
             return Err(NetCommsError::new(
                 NetCommsErrorKind::InvalidBufferSize,
-                Some("Implementation FromBytes for usize requires buffer of length of at least 8 bytes.".to_string())))
+                Some("Implementation FromBytes::from_bytes for usize requires bytes of length of at least 8 bytes.".to_string())))
         }
 
         let mut arr = [0_u8; 8];
@@ -40,7 +50,7 @@ impl FromBytes for usize {
         if None == buff.get(7) {
             return Err(NetCommsError::new(
                 NetCommsErrorKind::InvalidBufferSize,
-                Some("Implementation FromBytes for usize requires buffer of length of at least 8 bytes.".to_string())))
+                Some("Implementation FromBytes::from_buff for usize requires buffer of length of at least 8 bytes.".to_string())))
         }
 
         let mut arr = [0_u8; 8];
@@ -55,11 +65,11 @@ impl FromBytes for u16 {
 
     fn from_bytes(bytes: Bytes) -> Result<u16, NetCommsError> {
 
-        // Check if buffer has valid length(at least 8).
+        // Check if buffer has valid length(at least 2).
         if None == bytes.get(1) {
             return Err(NetCommsError::new(
                 NetCommsErrorKind::InvalidBufferSize,
-                Some("Implementation FromBytes for u16 requires buffer of length of at least 2 bytes.".to_string())))
+                Some("Implementation FromBytes::from_bytes for u16 requires bytes of length of at least 2 bytes.".to_string())))
         }
 
         let mut arr = [0_u8; 2];
@@ -73,11 +83,11 @@ impl FromBytes for u16 {
     where
         Self: Sized {
         
-        // Check if buffer has valid length(at least 8).
+        // Check if buffer has valid length(at least 2).
         if None == buff.get(1) {
             return Err(NetCommsError::new(
                 NetCommsErrorKind::InvalidBufferSize,
-                Some("Implementation FromBytes for u16 requires buffer of length of at least 2 bytes.".to_string())))
+                Some("Implementation FromBytes::from_buff for u16 requires buffer of length of at least 2 bytes.".to_string())))
         }
 
         let mut arr = [0_u8; 2];
@@ -96,7 +106,7 @@ impl FromBytes for u32 {
         if None == bytes.get(3) {
             return Err(NetCommsError::new(
                 NetCommsErrorKind::InvalidBufferSize,
-                Some("Implementation FromBytes for usize requires buffer of length of at least 4 bytes.".to_string())))
+                Some("Implementation FromBytes::from_bytes for usize requires bytes of length of at least 4 bytes.".to_string())))
         }
 
         let mut arr = [0_u8; 4];
@@ -112,7 +122,7 @@ impl FromBytes for u32 {
        if None == buff.get(3) {
         return Err(NetCommsError::new(
             NetCommsErrorKind::InvalidBufferSize,
-            Some("Implementation FromBytes for usize requires buffer of length of at least 4 bytes.".to_string())))
+            Some("Implementation FromBytes::from_buff for usize requires buffer of length of at least 4 bytes.".to_string())))
         }
 
         let mut arr = [0_u8; 4];
@@ -130,22 +140,16 @@ impl FromBytes for String {
     where
         Self: Sized {
 
-        match String::from_utf8(bytes.into_vec()) {
-            Ok(string) => Ok(string),
-            Err(e) => Err(NetCommsError::new(
-                NetCommsErrorKind::OtherSource(Box::new(e)),
-                None))
-        }
+        let string = String::from_utf8_lossy(bytes.as_slice()).into_owned();
+        
+        Ok(string)
     }
     
     fn from_buff(buff: &[u8]) -> Result<String, NetCommsError> {
 
-        match String::from_utf8(buff.to_vec()) {
-            Ok(string) => Ok(string),
-            Err(e) => Err(NetCommsError::new(
-                NetCommsErrorKind::OtherSource(Box::new(e)),
-                None))
-        }
+        let string = String::from_utf8_lossy(buff).into_owned();
+        
+        Ok(string)
     }
 }
 
@@ -157,7 +161,7 @@ impl FromBytes for DateTime<Utc> {
         if None == bytes.get(7) {
             return Err(NetCommsError::new(
                 NetCommsErrorKind::InvalidBufferSize,
-                Some("Implementation from_buff for DateTime<Utc> requires buffer of length of at least 8 bytes.".to_string())))
+                Some("Implementation FromBytes::from_bytes for DateTime<Utc> requires buffer of length of at least 8 bytes.".to_string())))
         }
         let naive_datetime = NaiveDateTime::from_timestamp(usize::from_bytes(bytes)? as i64, 0);
 
@@ -171,7 +175,7 @@ impl FromBytes for DateTime<Utc> {
         if let None = buff.get(7) {
             return Err(NetCommsError::new(
                 NetCommsErrorKind::InvalidBufferSize,
-                Some("Implementation from_buff for DateTime<Utc> requires buffer of length of at least 8 bytes.".to_string())))
+                Some("Implementation FromBytes::from_buff for DateTime<Utc> requires buffer of length of at least 8 bytes.".to_string())))
         }
 
         let naive_datetime = NaiveDateTime::from_timestamp(usize::from_buff(buff)? as i64, 0);

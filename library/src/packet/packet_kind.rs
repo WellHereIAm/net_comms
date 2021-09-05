@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 use crate::bytes::{Bytes, FromBytes, IntoBytes};
 // use crate::buffer::{IntoBuffer, FromBuffer};
 use crate::error::{NetCommsError, NetCommsErrorKind};
-use crate::ron::{IntoRon, FromRon};
+use crate::ron::{ToRon, FromRon};
 
 
 /// Determines kind of [Packet](super::Packet).
@@ -16,7 +16,8 @@ pub enum PacketKind {
     /// Part of [MetaData](super::MetaData) encoded in [RON](ron) format.
     MetaData,  
 
-    /// It is same as [MetaData], differing only in fact that this variant is used to sign the last part of [MetaData](super::MetaData).
+    /// It is same as [MetaData](super::MetaData),
+    /// differing only in fact that this variant is used to sign the last part of [MetaData](super::MetaData).
     MetaDataEnd, 
 
     /// Content packet, content depends on [MessageKind](crate::message::MessageKind) which is described in metadata of related
@@ -30,7 +31,7 @@ pub enum PacketKind {
     Unknown,
 }
 
-impl IntoRon for PacketKind {}
+impl ToRon for PacketKind {}
 impl FromRon<'_> for PacketKind {}
 
 

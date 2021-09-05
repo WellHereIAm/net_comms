@@ -1,7 +1,7 @@
 use library::bytes::{Bytes, FromBytes, IntoBytes};
 use serde::{Serialize, Deserialize};
 
-use library::ron::{FromRon, IntoRon};
+use library::ron::{FromRon, ToRon};
 use library::message::{Message, IntoMessage, MetaDataType, ContentType};
 use library::error::NetCommsError;
 use library::packet::{Packet, PacketKind};
@@ -29,7 +29,7 @@ pub enum Request {
     Unknown,    
 }
 
-impl IntoRon for Request {}
+impl ToRon for Request {}
 impl FromRon<'_> for Request {}
 
 pub enum RequestRaw {
@@ -58,7 +58,7 @@ impl IntoMessage<'_, MetaData, Content> for RequestRaw {
         };
 
         let mut message = ImplementedMessage::new();
-        let content = Content::with_data(request.into_ron()?);
+        let content = Content::with_data(request.to_ron()?);
         let content_buff = content.into_bytes();
 
         // Recipient of Request will always be a server.

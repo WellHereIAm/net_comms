@@ -14,7 +14,7 @@ use std::sync::{Arc, Mutex, mpsc};
 use std::sync::mpsc::{Receiver, Sender};
 
 use library::error::{NetCommsError, NetCommsErrorKind};
-use library::ron::{FromRon, IntoRon};
+use library::ron::{FromRon, ToRon};
 use library::message::Message;
 
 use shared::message::{Content, MessageKind, MetaData, ServerReply, ServerReplyRaw};
@@ -39,7 +39,7 @@ pub struct ServerConfig {
     save_location: PathBuf,
 }
 
-impl IntoRon for ServerConfig {}
+impl ToRon for ServerConfig {}
 impl FromRon<'_> for ServerConfig {}
 
 impl ServerConfig {
@@ -239,10 +239,15 @@ impl Server {
 
             if can_start_answer {
                 thread::Builder::new().name("connection".to_string()).spawn(move || {
-                    match Message::receive(&mut stream, Some(location)) {
+                    match Message::receive(&mut stream, Some(location.clone())) {
+
                         Ok(message) => {
                             let metadata: MetaData = message.metadata();
                             let message_kind: MessageKind = metadata.message_kind();
+                            let mut location = metadata.get_message_location(&location);
+                            location.push("message.ron");
+                            message.save(&location);
+
                             match message_kind {
                                 MessageKind::Text | MessageKind::File => {
                                     let _ = Self::receive_user_to_user_message(message, waiting_messages, users, output.clone());      
@@ -283,6 +288,14 @@ impl Server {
                                     output: Sender<Output>) -> Vec<String> {
 
         let mut non_existent_recipients = Vec::new();
+
+        // let message_ron = message.to_ron().unwrap();
+
+        // let mut path = location.clone().to_owned();
+        // path.push("message.ron");
+
+        // let mut file = fs::OpenOptions::new().create(true).write(true).open(path).unwrap();
+        // file.write_fmt(format_args!("{}", message_ron)).unwrap();
                             
         for recipient in message.metadata().recipients() {
 
@@ -323,7 +336,8 @@ impl Server {
                        ids: Arc<Mutex<Vec<u32>>>,
                        output: Sender<Output>) {
 
-        let author = UserLite::new(message.metadata().author_id(), message.metadata().author_username());
+        let author = UserLite::new(message.metadata_ref().author_id(),
+                                           message.metadata_ref().author_username());
         let request = Request::from_ron(&String::from_buff(&message.content_move().into_buff()).unwrap()).unwrap();
 
         match request {
@@ -387,7 +401,7 @@ impl Server {
                 drop(ids_guard);
                 
                 let user = User::new(id as u32, username, Password::new(password)); 
-                output.send(Output::FromRun(user.clone().into_ron_pretty(None).unwrap())).unwrap();
+                output.send(Output::FromRun(user.clone().to_ron_pretty(None).unwrap())).unwrap();
                 let user_lite = UserLite::from_user(&user);
                 
                 users_guard.insert(user.username(), user);

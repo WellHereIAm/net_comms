@@ -11,6 +11,9 @@ use utils::input;
 // ERROR HANDLING
 fn main() -> Result<(), NetCommsError> {
 
+    dbg!(Packet::max_size());
+    dbg!(Packet::max_content_size());
+
     // D:\\stepa\\Documents\\Rust\\net_comms\\src\\bin\\server\\server_config.ron
     let config_location = get_config_location();
 

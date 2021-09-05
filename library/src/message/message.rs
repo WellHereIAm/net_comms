@@ -9,10 +9,20 @@ use std::path::{Path, PathBuf};
 use crate::bytes::{Bytes, IntoBytes};
 use crate::error::{NetCommsError, NetCommsErrorKind};
 use crate::packet::{Packet, PacketKind};
-use crate::ron::{FromRon, IntoRon};
+use crate::ron::{FromRon, ToRon};
 use crate::message::{ContentType, MetaDataType};
 
-
+/// Default struct to store data sent or received.
+///
+/// # Fields
+/// * `metadata` -- has to implement [MetaDataType].
+/// * `content` -- has to implement [ContentType].
+/// * `end_data` -- marks end of [Message] during transmission, but can also hold some data.
+///
+/// Usually is used by declaring custom [type].
+/// ```
+/// type MyMessage = Message<MyMetaData, MyContent>;
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message<M, C> {
     metadata: M,
@@ -41,12 +51,12 @@ where
 
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 
-        let formatted = self.into_ron_pretty(None).expect("Failed to parse a Message to RON.");
+        let formatted = self.to_ron_pretty(None).expect("Failed to parse a Message to RON.");
         write!(f, "{}", &formatted)
     }
 }
 
-impl<'a, M, C> IntoRon for Message<M, C> 
+impl<'a, M, C> ToRon for Message<M, C> 
 where
     M: Serialize,
     C: Serialize {}
@@ -63,12 +73,37 @@ where
     M: Default + Clone + MetaDataType<'a> + Debug,
     C: Default + Clone + ContentType<'a, M, C> + Debug {
 
+    /// Creates an empty [Message].
+    /// 
+    /// Usually created as mutable and later given data.
+    ///
+    /// ```
+    /// use library::packet::{Packet, PacketKind};
+    ///
+    /// type MyMessage = Message<MyMetaData, MyContent>;
+    //
+    /// let mut message = MyMessage::new();
+    /// 
+    /// message.set_metadata(MyMetaData::new());
+    /// message.set_content(MyContent::new());
+    /// message.set_end_data(Packet::new(PacketKind::End, Bytes::new()));
+    /// ```
+    /// * Note: This example will not work as referenced structs do not exist.
     pub fn new() -> Self {
         Self::default()
     }
     
+    /// Sends `Self` via [`stream`](std::net::TcpStream).
+    ///
+    /// Takes an ownership of `self`.
+    ///
+    /// This uses send methods implemented by `metadata` and `content`.
+    ///
+    /// This will return [Ok] with an empty [tuple] inside if succeeds to send `self`, otherwise returns [NetCommsError].
     pub fn send(self, stream: &mut TcpStream) -> Result<(), NetCommsError> {
         
+        // MetaDataType needs to return valid metadata, if they need to be used while sending content,
+        // otherwise it can just return an empty, invalid metadata.
         let metadata = self.metadata.send(stream)?;
         self.content.send(stream, metadata)?;
         self.end_data.send(stream)?;
@@ -76,21 +111,28 @@ where
         Ok(())
     }
 
+    /// Receives a [Message] from [`stream`](std::net::TcpStream).
+    ///
+    /// * `location` -- an optional path to location on the device, that can be used to store 
+    /// received data inside methods implemented by `metadata` and `content`.
     pub fn receive(stream: &mut TcpStream, location: Option<PathBuf>) -> Result<Self, NetCommsError> {
         
         let mut message = Self::default();
 
         let metadata = M::receive(stream, location.clone())?;
+        // Since end of content is marked by end_data packet, it needs to be returned with content.
+        let (content, end_data) = C::receive(stream, &metadata, location)?;
+
         message.set_metadata(metadata);
-
-        let (content, end_data) = C::receive(stream, &mut message, location)?;
-
         message.set_content(content);
         message.set_end_data(end_data);
 
         Ok(message)
     }
 
+    /// Sends [`content`](Bytes) via `stream`.
+    ///
+    /// This method can be used in implementation of [ContentType].
     pub fn send_content(stream: &mut TcpStream, content: Bytes) -> Result<(), NetCommsError>  {
 
         let content_split = Packet::split_to_max_packet_size(content);
@@ -104,10 +146,14 @@ where
         Ok(())
     }
 
+    /// Receives [`content`](Bytes) and `end_data` [Packet] from `stream`.
+    ///
+    /// This method can be used in implementation of [ContentType].
     pub fn receive_content(stream: &mut TcpStream) -> Result<(Bytes, Packet), NetCommsError> {
 
         let mut content = Bytes::new();
         
+        // loop until end_data packet is received.
         loop {
             let mut packet = Packet::receive(stream)?;
 
@@ -131,25 +177,25 @@ where
                     return Ok((content, end_data));
                 },
                 PacketKind::Unknown => {
-                    // !!! This error.
                     return Err(NetCommsError::new(
-                        NetCommsErrorKind::UnknownMessageKind,
+                        NetCommsErrorKind::UnknownPacketKind,
                         None))
                 },
             } 
         }
     }
 
+    /// Sends a file from [`path`](Path) via a [`stream`](TcpStream).
+    ///
+    /// This method differs from other send methods as this does not load whole file into memory,
+    /// but it gradually reads file sends part with size equal to [MAX_CONTENT_SIZE](Packet::max_content_size).
     pub fn send_file(stream: &mut TcpStream, path: &Path) -> Result<(), NetCommsError> {
 
         let file = match File::open(path) {
             Ok(file) => file,
             Err(e) => return Err(NetCommsError::new(
                 NetCommsErrorKind::OpeningFileFailed,
-                Some(format!("Opening a file {} failed. ({})",
-                            path.to_str()
-                                .expect("Path does is not composed of valid utf-8 characters."),
-                            e)))),
+                Some(format!("{}", e)))),
         };
 
         // Get information about to how many packet the file will be split.
@@ -163,44 +209,48 @@ where
         // Starts at 1 and ends inclusively at n_of_content_packets so the whole file is read.
         for part in 1..=n_of_content_packets {
             let packet: Packet;
-            {
-                let mut buff: Vec<u8>;   
-                if part == n_of_content_packets {
-                    buff = Vec::new();
-                    if let Err(e) = reader.read_to_end(&mut buff) {
-                        return Err(NetCommsError::new(
-                            NetCommsErrorKind::ReadingFromFileFailed,
-                            Some(format!("Failed to read last content packet from file.\n({})",
-                                         e))));
-                    }
-                } else {
-                    // Create a buffer with exact buffer size.
-                    buff = vec![0_u8; Packet::max_content_size() as usize];
-                    // This read_exact instead of read is really important.
-                    if let Err(e) = reader.read_exact(&mut buff) {  
-                        return Err(NetCommsError::new(
-                            NetCommsErrorKind::ReadingFromFileFailed,
-                            Some(format!("Failed to read content packet from file.\n({})", e))));
-                    } 
-                }    
+            
+            let mut buff: Vec<u8>;   
+            if part == n_of_content_packets {
+                // Read last part of file.
+                buff = Vec::new();
+                if let Err(e) = reader.read_to_end(&mut buff) {
+                    return Err(NetCommsError::new(
+                        NetCommsErrorKind::ReadingFromFileFailed,
+                        Some(format!("Failed to read last content packet from file.\n({})",
+                                     e))));
+                }
+            } else {
+                // Create a buffer with exact buffer size.
+                buff = vec![0_u8; Packet::max_content_size() as usize];
+                // This read_exact instead of read is really important.
+                if let Err(e) = reader.read_exact(&mut buff) {  
+                    return Err(NetCommsError::new(
+                        NetCommsErrorKind::ReadingFromFileFailed,
+                        Some(format!("Failed to read content packet from file.\n({})", e))));
+                } 
+            }    
 
-                packet = Packet::new(PacketKind::Content, buff.into_bytes());
-            }
-
+            packet = Packet::new(PacketKind::Content, buff.into_bytes());
+            
             packet.send(stream)?;
         }
 
         Ok(())
     }
 
+    /// Receives a file from [`stream`](TcpStream) and saves it to [`location`](Path) with `file_name`.
+    ///
+    /// This method differs from other receive methods as this does not load whole file into memory,
+    /// but it gradually receives part of file and saves it.
     pub fn receive_file(stream: &mut TcpStream,
-                        path: &Path, file_name: String,
+                        location: &Path, file_name: String,
                         ) -> Result<(usize, Packet), NetCommsError> {
 
-        let mut path = path.to_path_buf();
+        let mut path = location.to_path_buf();
         path.push(&file_name);
 
-        let file = match File::open(path) {
+        let file = match File::create(path) {
             Ok(file) => file,
             Err(e) => {
                 return Err(NetCommsError::new(
@@ -212,6 +262,7 @@ where
         let mut writer = BufWriter::new(file);
 
         let mut number_of_packets = 0;
+        // Loop to receive packets until end_data packet comes.
         loop {
             let packet = Packet::receive(stream)?;
 
@@ -250,55 +301,68 @@ where
             number_of_packets += 1;
         }  
     }
-
-    // Implementation of setters and getters for Message.
-
-    pub fn metadata(&self) -> M {
-        self.metadata.clone()
-    }
-
-    pub fn metadata_ref(&'a self) -> &'a M {
-        &self.metadata
-    }
-
-    pub fn metadata_mut(&'a mut self) -> &'a mut M {
-        &mut self.metadata
-    }
-
-    pub fn metadata_move(self) -> M {
-        self.metadata
-    }
-
-    pub fn content_ref<'b>(&'b self) -> &'b C {
-        &self.content
-    }
-
-    pub fn content_mut<'b>(&'b mut self) -> &'b mut C {
-        &mut self.content
-    }
-
-    pub fn content_move(self) -> C {
-        self.content
-    }
-
-    pub fn set_metadata(&mut self, metadata: M) {
-        self.metadata = metadata;
-    }
-
-    pub fn set_content(&mut self, content: C) {
-        self.content = content;
-    }
-
-    pub fn set_end_data(&mut self, end_data: Packet) {
-        self.end_data = end_data;
-    }
-
+    
+    /// Saves `Self` into `location`.
     pub fn save(&self, location: &Path) {
 
-        let message_ron = self.into_ron().unwrap();
+        let message_ron = self.to_ron().unwrap();
         fs::create_dir_all(location.parent().unwrap()).unwrap();
 
         let mut file = fs::OpenOptions::new().create(true).write(true).open(location).unwrap();
         file.write_fmt(format_args!("{}", message_ron)).unwrap();
+    }
+
+    // Implementation of setters and getters for Message.
+
+    /// Returns `metadata`.
+    ///
+    /// Metadata are cloned.
+    pub fn metadata(&self) -> M {
+        self.metadata.clone()
+    }
+
+    /// Returns a reference to `metadata`.
+    pub fn metadata_ref(&'a self) -> &'a M {
+        &self.metadata
+    }
+
+    /// Returns a mutable reference to `metadata`.
+    pub fn metadata_mut(&'a mut self) -> &'a mut M {
+        &mut self.metadata
+    }
+
+    /// Takes ownership of `Self` and return owned `metadata`.
+    pub fn metadata_move(self) -> M {
+        self.metadata
+    }
+
+    /// Return a reference to `content`.
+    pub fn content_ref<'b>(&'b self) -> &'b C {
+        &self.content
+    }
+
+    /// Return a mutable reference to `content`.
+    pub fn content_mut<'b>(&'b mut self) -> &'b mut C {
+        &mut self.content
+    }
+
+    /// Takes ownership of `Self` and return owned `content`.
+    pub fn content_move(self) -> C {
+        self.content
+    }
+
+    /// Sets [Message] `metadata` to given.
+    pub fn set_metadata(&mut self, metadata: M) {
+        self.metadata = metadata;
+    }
+
+    /// Sets [Message] `content` to given.
+    pub fn set_content(&mut self, content: C) {
+        self.content = content;
+    }
+
+    /// Sets [Message] `end_data` to given packet, this [Packet] should have `kind` [PacketKind::End].
+    pub fn set_end_data(&mut self, end_data: Packet) {
+        self.end_data = end_data;
     }
 }

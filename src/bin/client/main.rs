@@ -13,7 +13,7 @@ mod command;
 use command::CommandRaw;
 use library::bytes::{FromBytes, IntoBytes};
 use library::error::NetCommsError;
-use library::prelude::{FromRon, IntoMessage, IntoRon};
+use library::prelude::{FromRon, IntoMessage, ToRon, Packet};
 use shared::message::ServerReply;
 use shared::user::user::UserLite;
 use shared::{ImplementedMessage, MessageKind, RequestRaw};
@@ -22,9 +22,11 @@ use shared::user::User;
 
 mod client;
 
-
 // ERROR HANDLING
 fn main() -> Result<(), NetCommsError> {
+
+    dbg!(Packet::max_size());
+    dbg!(Packet::max_content_size());
 
     let socket = format!("{}:{}", ADDR, PORT);
     let user = get_user()?;
@@ -106,10 +108,14 @@ fn get_waiting_messages(user: UserLite, socket: String, _mpsc_transmitter: Sende
                         match ImplementedMessage::receive(&mut stream, Some(location.to_path_buf())) {
                             Ok(message) => {
 
+                                let mut path = message.metadata().get_message_location(location);
+                                path.push("message.ron");
+                                message.save(&path);
+
                                 let metadata = message.metadata();
                                 let message_kind = metadata.message_kind();         
 
-                                let message_pretty = message.into_ron_pretty(None).unwrap();
+                                let message_pretty = message.to_ron_pretty(None).unwrap();
                                 let mut file = fs::File::create("received_message.ron").unwrap();
                                 file.write_all(&message_pretty.into_buff()).unwrap();
 

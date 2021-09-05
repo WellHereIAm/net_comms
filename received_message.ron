@@ -1,0 +1,29 @@
+(
+    metadata: (
+        message_kind: Text,
+        message_length: 3,
+        datetime: ([
+            0,
+            0,
+            0,
+            0,
+            97,
+            51,
+            165,
+            107,
+        ]),
+        author_id: 0,
+        author_username: "Lucy",
+        recipient_id: 2,
+        recipients: [
+            "guy",
+        ],
+        file_name: None,
+    ),
+    content: ("Hey, I am fine."),
+    end_data: (
+        size: 4,
+        kind: End,
+        content: ([]),
+    ),
+)

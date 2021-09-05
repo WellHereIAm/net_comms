@@ -4,7 +4,7 @@ use ron::ser::{self, PrettyConfig};
 use crate::error::{NetCommsError, NetCommsErrorKind};
 
 /// Trait with default methods that allow implementors parse them to [RON](ron) format.
-pub trait IntoRon
+pub trait ToRon
 where 
     Self: Serialize {
     
@@ -12,7 +12,7 @@ where
     ///
     /// # Errors
     /// * Will return [NetCommsError] with kind [NetCommsErrorKind::SerializingFailed] if it fails to serialize this implementor.
-    fn into_ron(&self) -> Result<String, NetCommsError> {
+    fn to_ron(&self) -> Result<String, NetCommsError> {
 
         match ser::to_string(&self) {
             Ok(serialized) => Ok(serialized),
@@ -28,7 +28,7 @@ where
     ///
     /// # Errors
     /// * Will return [NetCommsError] with kind [NetCommsErrorKind::SerializingFailed] if it fails to serialize implementor.
-    fn into_ron_pretty(&self, config: Option<PrettyConfig>) -> Result<String, NetCommsError> {
+    fn to_ron_pretty(&self, config: Option<PrettyConfig>) -> Result<String, NetCommsError> {
         
         let config = match config {
             Some(config) => config,

@@ -8,7 +8,7 @@ use std::time::SystemTime;
 use library::bytes::{Bytes, FromBytes, IntoBytes};
 use library::error::{NetCommsError, NetCommsErrorKind};
 use library::message::MetaDataType;
-use library::ron::{IntoRon, FromRon};
+use library::ron::{ToRon, FromRon};
 use library::packet::{Packet, PacketKind};
 
 use super::message_kind::MessageKind;
@@ -61,14 +61,14 @@ impl Default for MetaData {
     }
 }
 
-impl IntoRon for MetaData {}
+impl ToRon for MetaData {}
 impl FromRon<'_> for MetaData {}
 
 impl IntoBytes for MetaData {
 
     /// This takes an ownership of self and first encodes MetaData to RON format which is then encoded to buffer.
     fn into_bytes(self) -> Bytes {
-        IntoBytes::into_bytes(self.into_ron().unwrap())
+        IntoBytes::into_bytes(self.to_ron().unwrap())
     }
 }
 

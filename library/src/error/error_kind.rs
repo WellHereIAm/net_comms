@@ -8,6 +8,8 @@ pub enum NetCommsErrorKind {
 
     /// Used if packet kind was not expected or a function or a method was used on wrong [PacketKind](crate::packet::PacketKind) variant.
     InvalidPacketKind, 
+    /// Used if fails to recognize [PacketKind](crate::packet::PacketKind).
+    UnknownPacketKind,
 
     /// Used if serializing struct with [serde] fails.
     SerializingFailed,

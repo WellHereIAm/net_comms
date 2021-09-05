@@ -22,3 +22,4 @@
 13. Create custom parsers for struct sent through network.
 14. Look into reworking Packet and PacketKind to format of PacketPretty.
 15. Try make messages even smaller, without sacrificing readability.
+16. Maybe remove location argument in ContentType::receive, replace it with Config in client.

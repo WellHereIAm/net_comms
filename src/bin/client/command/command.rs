@@ -1,4 +1,4 @@
-use library::{bytes::{Bytes, IntoBytes}, error::{NetCommsError, NetCommsErrorKind}, prelude::{IntoMessage, IntoRon, Packet, PacketKind}};
+use library::{bytes::{Bytes, IntoBytes}, error::{NetCommsError, NetCommsErrorKind}, prelude::{IntoMessage, ToRon, Packet, PacketKind}};
 use shared::{Content, ImplementedMessage, MessageKind, MetaData, Request, config::{SERVER_ID, SERVER_USERNAME}, user::{User, UserLite, UserUnchecked}};
 
 
@@ -77,7 +77,7 @@ fn from_register(user_unchecked: UserUnchecked, author: UserLite) -> Result<Impl
     let mut message = ImplementedMessage::new();
 
     let request = Request::Register(user_unchecked);
-    let content = IntoBytes::into_bytes(request.into_ron()?);
+    let content = IntoBytes::into_bytes(request.to_ron()?);
 
     // Recipient of Request will always be a server.
     let message_kind = MessageKind::Request;
@@ -102,7 +102,7 @@ fn from_login(user_unchecked: UserUnchecked, author: UserLite) -> Result<Impleme
     let mut message = ImplementedMessage::new();
 
     let request = Request::Login(user_unchecked);
-    let content = IntoBytes::into_bytes(request.into_ron()?);
+    let content = IntoBytes::into_bytes(request.to_ron()?);
 
     // Recipient of Request will always be a server.
     let message_kind = MessageKind::Request;

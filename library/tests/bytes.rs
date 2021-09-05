@@ -1,7 +1,4 @@
 use library::bytes;
-use bytes::{Bytes, FromBytes, IntoBytes};
-use std::slice::SliceIndex;
-use std::ops::Index;
 
 # [test]
 fn bytes_slice() {

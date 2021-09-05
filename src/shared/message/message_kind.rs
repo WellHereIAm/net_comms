@@ -2,7 +2,7 @@ use serde::{Serialize, Deserialize};
 
 use library::bytes::{Bytes, FromBytes, IntoBytes};
 use library::error::{NetCommsError, NetCommsErrorKind};
-use library::ron::{FromRon, IntoRon};
+use library::ron::{FromRon, ToRon};
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,7 +23,7 @@ impl Default for MessageKind {
 }
 
 impl FromRon<'_> for MessageKind {}
-impl IntoRon for MessageKind {}
+impl ToRon for MessageKind {}
 
 impl IntoBytes for MessageKind {
 
