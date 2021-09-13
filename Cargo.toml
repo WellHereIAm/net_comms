@@ -24,3 +24,5 @@ indoc = "1.0.3"
 
 pbkdf2 = "0.9"
 rand_core = { version = "0.6", features = ["std"] }
+
+rand = "0.8.4"

@@ -9,14 +9,46 @@ use pbkdf2::password_hash::PasswordVerifier;
 use pbkdf2::password_hash::SaltString;
 use rand_core::OsRng;
 use serde::{Serialize, Deserialize};
+
+use rand::{distributions::Alphanumeric, Rng};
+
 use ron::ser;
 use ron::de;
+
 
 use library::error::{NetCommsError, NetCommsErrorKind};
 use crate::config::SERVER_ID;
 use crate::config::SERVER_USERNAME;
 use crate::config::{UNKNOWN_USER_ID, UNKNOWN_USERNAME};
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AuthToken (String);
+
+impl AuthToken {
+    
+    fn new() -> Self {
+
+        let s: String = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(20)
+            .map(char::from)
+            .collect();
+        println!("{}", s);
+
+        AuthToken (s)
+    }
+
+
+}
+
+# [test]
+fn auth_token() {
+
+    let token = AuthToken::new();
+    let t = token.clone();
+    println!("{:?}", token);
+    assert_eq!(t, token);
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Password (String);
@@ -119,6 +151,7 @@ pub struct User {
     id: u32,
     username: String,
     password: Password, 
+    auth_token: Option<AuthToken>,
 }
 
 impl FromRon<'_> for User {}
@@ -132,6 +165,7 @@ impl User {
             id,
             username,
             password,
+            auth_token: None
         }
     }
 
@@ -140,6 +174,7 @@ impl User {
             id,
             username: user_unchecked.username,
             password: Password::new(user_unchecked.password),
+            auth_token: None
         }
     }
 

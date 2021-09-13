@@ -551,7 +551,3 @@ impl Server {
         }
     }
 }
-
-# [test]
-fn server_new() {
-}
