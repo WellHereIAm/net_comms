@@ -65,6 +65,10 @@ impl Password {
         Password (password_hash)
     }
 
+    pub fn from_hash(hash: String) -> Self {
+        Password (hash)
+    }
+
     pub fn verify(&self, other: String) -> bool {
         
         let password_hash = PasswordHash::new(&self.0).unwrap();

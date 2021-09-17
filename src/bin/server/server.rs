@@ -1,11 +1,14 @@
 use library::bytes::{FromBytes, IntoBytes};
 use library::prelude::IntoMessage;
+use rusqlite::{Connection, ToSql};
+use rusqlite::types::{Null, ToSqlOutput};
 use serde::{Serialize, Deserialize};
 use indoc::indoc;
 use shared::{ImplementedMessage, Request};
 
 use std::collections::HashMap;
-use std::{fs, io, thread};
+use std::hash::Hash;
+use std::{fs, io, thread, vec};
 use std::io::{Read, Write};
 use std::net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
@@ -23,10 +26,20 @@ use shared::config::{SERVER_ID, UNKNOWN_USERNAME, UNKNOWN_USER_ID};
 
 use utils::input;
 
-pub enum Output {
+
+enum Output {
     Error(String),
     FromRun(String),
     FromUserInput(String),   
+}
+
+enum DatabaseRequest {
+    GetNewUserId,
+    GetMessageId,
+}
+
+enum DatabaseAnswer {
+    
 }
 
 
@@ -98,15 +111,6 @@ impl Server {
         Ok(server)
     }
 
-    pub fn create_listener(&self) -> TcpListener {
-
-        let socket = SocketAddrV4::new(self.ip(), self.config.port);
-        match TcpListener::bind(socket) {
-            Ok(listener) => return  listener,
-            Err(e) => panic!("Failed to create listener.\n{}", &e),
-        }
-    }
-
     pub fn run(self) -> Result<(), NetCommsError> {
 
         println!("[SERVER]: Starting server...");
@@ -116,6 +120,108 @@ impl Server {
         let (finished_t, finished_r) = mpsc::channel::<bool>(); 
         let (output_t, output_r) = mpsc::channel::<Output>();
 
+        let mut db_path = self.config.save_location.clone();
+        db_path.push("database.db");
+
+        Self::database(&db_path).unwrap();
+        Self::output(output_r);
+        Self::input(output_t.clone());
+    
+        Server::check_maximum_active_connections(self.config.maximum_active_connections,
+                                                 can_start_r, allowance_t, finished_r);
+
+        let listener = self.create_listener();
+
+        let output_t_listener = output_t.clone();
+        thread::Builder::new().name("listener".to_string()).spawn(move || {
+            loop {
+                match listener.accept() {
+                    Ok((stream, _socket_addr)) => {
+                        self.handle_connection(stream,
+                                               can_start_t.clone(), &allowance_r, finished_t.clone(), output_t_listener.clone(),
+                                               &db_path);
+                    }
+                    Err(e) => eprintln!("{}", e),
+                };
+            }
+        }).unwrap();
+
+        output_t.send(Output::FromRun("ServerStarted.".to_string())).expect("Server could not be started.");
+
+        Ok(())
+        
+    }
+
+    fn database(db_path: &Path) -> Result<(), NetCommsError> {
+
+        
+        let db_conn = Connection::open(db_path).unwrap();
+        // Check if this is a valid database. Now tables are always created.
+
+        db_conn.execute(
+            "CREATE TABLE users (
+                id                  INTEGER NOT NULL,
+                username            TEXT NOT NULL,
+                registration_date   TEXT NOT NULL,
+                password            TEXT NOT NULL,
+                auth_token          TEXT DEFAULT NULL
+            )", []).unwrap();
+
+        db_conn.execute(
+            "CREATE TABLE messages (
+                id                  INTEGER PRIMARY KEY NOT NULL,
+                kind                TEXT NOT NULL,
+                length              INTEGER NOT NULL,
+                datetime            TEXT NOT NULL,
+                author_id           INTEGER,
+                author_username     TEXT NOT NULL,
+                recipient_id        INTEGER NOT NULL,
+                file_name           TEXT,
+                content             TEXT,
+                end_data            TEXT
+        )", []).unwrap();
+
+        db_conn.execute(
+            "CREATE TABLE message_recipients (
+                message_id          INTEGER NOT NULL,
+                recipient_id        INTEGER NOT NULL
+        )", []).unwrap();
+
+        db_conn.execute(
+            "CREATE TABLE waiting_messages (
+                message_id          INTEGER NOT NULL,
+                recipient_id        INTEGER NOT NULL
+            )", []).unwrap();
+
+        db_conn.execute(
+            "CREATE TABLE available_ids (
+                id                  INTEGER
+        )", []).unwrap();
+
+        let first_id = 2;
+
+        db_conn.execute("INSERT INTO available_ids (id) VALUES (?1)", [first_id]).unwrap();
+
+        db_conn.execute("INSERT INTO users (id, username, password, registration_date) VALUES
+                            (?1, ?2, ?3, ?4)",
+                             ["2", "Lucy", "pass", "some"]).unwrap();
+
+        let mut stmt = db_conn.prepare("SELECT id, username FROM users").unwrap();
+        
+        let user_iter = stmt.query_map([], |row| {
+            Ok(UserLite::new(
+                row.get(0).unwrap(),
+                row.get(1).unwrap()))
+        }).unwrap();
+
+        for user in user_iter {
+            println!("{:?}", user.unwrap())
+        }
+
+        Ok(())
+    }
+
+    fn output(output_r: Receiver<Output>) {
 
         thread::Builder::new().name("output".to_string()).spawn(move || {
             print!(">>> ");
@@ -154,39 +260,17 @@ impl Server {
                 }
             }
         }).unwrap();
+    }
 
-        let output_t_input = output_t.clone();
+    fn input(output_t: Sender<Output>) {
+        
         thread::Builder::new().name("input".to_string()).spawn(move|| {
             loop {
                 let input = input("").unwrap();
                 // Later handle input.
-                output_t_input.send(Output::FromUserInput(format!("input: {:?}", input))).unwrap();
+                output_t.send(Output::FromUserInput(format!("input: {:?}", input))).unwrap();
             }
         }).unwrap();
-
-        
-        Server::check_maximum_active_connections(self.config.maximum_active_connections,
-                                                 can_start_r, allowance_t, finished_r);
-
-        let listener = self.create_listener();
-
-        let output_t_listener = output_t.clone();
-        thread::Builder::new().name("listener".to_string()).spawn(move || {
-
-            loop {
-                match listener.accept() {
-                    Ok((stream, _socket_addr)) => {
-                        self.handle_connection(stream, can_start_t.clone(), &allowance_r, finished_t.clone(), output_t_listener.clone());
-                    }
-                    Err(e) => eprintln!("{}", e),
-                };
-            }
-        }).unwrap();
-
-        output_t.send(Output::FromRun("ServerStarted.".to_string())).expect("Server could not be started.");
-
-        Ok(())
-        
     }
 
     fn check_maximum_active_connections(max: u16, can_start: Receiver<bool>, allowance: Sender<bool>, finished: Receiver<bool>) {
@@ -216,13 +300,25 @@ impl Server {
             }
         }).unwrap();
     }
-    fn handle_connection(&self, mut stream: TcpStream, can_start: Sender<bool>, allowance: &Receiver<bool>, finished: Sender<bool>,
-                         output: Sender<Output>) {
+
+    fn create_listener(&self) -> TcpListener {
+
+        let socket = SocketAddrV4::new(self.ip(), self.config.port);
+        match TcpListener::bind(socket) {
+            Ok(listener) => return  listener,
+            Err(e) => panic!("Failed to create listener.\n{}", &e),
+        }
+    }
+
+    fn handle_connection(&self, mut stream: TcpStream,
+                         can_start: Sender<bool>, allowance: &Receiver<bool>, finished: Sender<bool>, output: Sender<Output>,
+                         db_path: &Path) {
 
         let users = Arc::clone(&self.users);
         let ids = Arc::clone(&self.ids);
         let waiting_messages = Arc::clone(&self.waiting_messages);
         let location = self.config.save_location.clone();
+        let db_location = db_path.to_owned();
 
         loop {
             if let Err(e) = can_start.send(true) {
@@ -239,9 +335,15 @@ impl Server {
 
             if can_start_answer {
                 thread::Builder::new().name("connection".to_string()).spawn(move || {
+
+                    let mut db_conn = Connection::open(db_location).unwrap();
+
                     match Message::receive(&mut stream, Some(location.clone())) {
 
                         Ok(message) => {
+                            
+                            insert_message_into_database(message.clone(), &mut db_conn);                            
+
                             let metadata: MetaData = message.metadata();
                             let message_kind: MessageKind = metadata.message_kind();
                             let mut location = metadata.get_message_location(&location);
@@ -550,4 +652,75 @@ impl Server {
             Err(_) => panic!("Failed to get an ip address.\nFailed to parse string from config to Ipv4Addr."),
         }
     }
+}
+
+fn get_new_message_id(db_conn: &mut Connection) -> usize {
+
+    let mut stmt = db_conn.prepare("SELECT MAX(id) FROM messages LIMIT 1").unwrap();
+    let mut id = stmt.query_map([], |row| {
+        let id: usize = match row.get(0) {
+            Ok(id) => id,
+            Err(_) => 0,
+        };
+        Ok(id)
+    }).unwrap().next().unwrap().unwrap();
+    id += 1;
+
+    id
+}
+
+
+fn insert_message_into_database(message: ImplementedMessage, db_conn: &mut Connection) {
+
+    let id = get_new_message_id(db_conn);
+
+    let metadata = message.metadata_ref();
+
+    let id = id.to_sql().unwrap();
+
+    let kind = metadata.message_kind().to_ron().unwrap();
+    let kind = kind.to_sql().unwrap();
+    
+    let length = metadata.message_length();
+    let length = length.to_sql().unwrap();
+
+    let datetime = metadata.datetime().unwrap().to_rfc3339();
+    let datetime = datetime.to_sql().unwrap();
+
+    let author_id = metadata.author_id();
+    let author_id = author_id.to_sql().unwrap();
+
+    let author_username = metadata.author_username();
+    let author_username = author_username.to_sql().unwrap();
+
+    let recipient_id = metadata.recipient_id();
+    let recipient_id = recipient_id.to_sql().unwrap();
+
+    let file_name = metadata.file_name();
+    let file_name = file_name.to_sql().unwrap();
+
+    let content = message.content_ref().to_string();
+    let content = content.to_sql().unwrap();
+
+    // Change this later so it can accommodate also non string data.
+    let end_data = message.end_data().content_move().to_string();
+    let end_data = end_data.to_sql().unwrap();
+
+    db_conn.execute("INSERT INTO messages
+                            (id, kind, length, datetime, author_id, author_username,
+                            recipient_id, file_name, content, end_data)
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                            [
+                                id,
+                                kind,
+                                length,
+                                datetime,
+                                author_id,
+                                author_username,
+                                recipient_id,
+                                file_name,
+                                content,
+                                end_data,
+                            ]).unwrap();
+
 }

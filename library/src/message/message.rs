@@ -350,6 +350,13 @@ where
     pub fn content_move(self) -> C {
         self.content
     }
+    
+    /// Returns `end_data`.
+    ///
+    /// `end_data` are cloned.
+    pub fn end_data(&self) -> Packet {
+        self.end_data.clone()
+    }
 
     /// Sets [Message] `metadata` to given.
     pub fn set_metadata(&mut self, metadata: M) {
