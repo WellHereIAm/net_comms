@@ -2,5 +2,5 @@
     ip: "127.0.0.1",
     port: 8000,
     request_incoming_messages_timer: 1,
-    save_location: "D:\\stepa\\Documents\\Rust\\net_comms\\server_logs",
+    save_location: "C:\\Documents\\Rust\\net_comms_logs\\client",
 )

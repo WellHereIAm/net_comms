@@ -13,6 +13,7 @@ mod client;
 fn main() -> Result<(), NetCommsError> {
 
     // D:\\stepa\\Documents\\Rust\\net_comms\\src\bin\\client\\client_config.ron
+    // C:\Documents\Rust\net_comms\src\bin\client\client_config.ron
     let config_location = get_config_location();
 
     let client = Client::new(&config_location)?;
@@ -25,7 +26,6 @@ fn get_config_location() -> PathBuf {
 
     loop {
         let location = input("Enter client config location: \n>>> ").unwrap();
-        println!("{}", &location);
         
         match PathBuf::from_str(&location) {
             Ok(path) => {
