@@ -15,6 +15,7 @@ fn main() -> Result<(), NetCommsError> {
     dbg!(Packet::max_content_size());
 
     // D:\\stepa\\Documents\\Rust\\net_comms\\src\\bin\\server\\server_config.ron
+    // C:\Documents\Rust\net_comms\src\bin\server\server_config.ron
     let config_location = get_config_location();
 
     let server = Server::new(&config_location)?;
@@ -29,7 +30,7 @@ fn get_config_location() -> PathBuf {
 
     loop {
         let location = input("Enter server config location: \n>>> ").unwrap();
-        println!("{}", &location);
+
         
         match PathBuf::from_str(&location) {
             Ok(path) => {
