@@ -38,7 +38,9 @@ impl AuthToken {
         AuthToken (s)
     }
 
-
+    fn get(&self) -> String {
+        self.0.clone()
+    }
 }
 
 # [test]
@@ -65,6 +67,10 @@ impl Password {
         Password (password_hash)
     }
 
+    pub fn from_hash(hash: String) -> Self {
+        Password (hash)
+    }
+
     pub fn verify(&self, other: String) -> bool {
         
         let password_hash = PasswordHash::new(&self.0).unwrap();
@@ -74,6 +80,10 @@ impl Password {
         } else {
             false
         } 
+    }
+
+    pub fn get(&self) -> String {
+        self.0.clone()
     }
 }
 
@@ -190,5 +200,16 @@ impl User {
     /// Returns `username`.
     pub fn username(&self) -> String {
         self.username.clone()
+    }
+
+    pub fn password(&self) -> Password {
+        self.password.clone()
+    }
+
+    pub fn auth_token(&self) -> Option<String> {
+        match &self.auth_token {
+            Some(auth_token) => Some(auth_token.get()),
+            None => None,
+        }
     }
 }

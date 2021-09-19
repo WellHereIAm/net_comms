@@ -1,0 +1,26 @@
+users (
+    id: integer,
+    username: text,
+    password: text,
+    registration_date: text,
+    auth_token: text or null,
+)
+
+messages (
+    id: integer,
+    kind: text,
+    length: integer,
+    datetime: text,
+    author_id: integer,
+    author_username: text,
+    recipient_id: integer,
+    recipients: text from vec
+    file_name: text or null
+    content: text,
+    end_data: text from bytes
+)
+
+waiting_messages (
+    message_id: integer,
+    recipient_id: integer,
+)

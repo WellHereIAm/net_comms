@@ -8,11 +8,12 @@ mod message;
 use server::Server;
 use utils::input;
 
+use rusqlite::{params, Connection};
+
+
+// mod database;
 // ERROR HANDLING
 fn main() -> Result<(), NetCommsError> {
-
-    dbg!(Packet::max_size());
-    dbg!(Packet::max_content_size());
 
     // D:\\stepa\\Documents\\Rust\\net_comms\\src\\bin\\server\\server_config.ron
     // C:\Documents\Rust\net_comms\src\bin\server\server_config.ron

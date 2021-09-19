@@ -336,6 +336,10 @@ where
         self.metadata
     }
 
+    pub fn content(&self) -> C {
+        self.content.clone()
+    }
+
     /// Return a reference to `content`.
     pub fn content_ref<'b>(&'b self) -> &'b C {
         &self.content
@@ -349,6 +353,13 @@ where
     /// Takes ownership of `Self` and return owned `content`.
     pub fn content_move(self) -> C {
         self.content
+    }
+    
+    /// Returns `end_data`.
+    ///
+    /// `end_data` are cloned.
+    pub fn end_data(&self) -> Packet {
+        self.end_data.clone()
     }
 
     /// Sets [Message] `metadata` to given.

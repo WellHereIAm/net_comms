@@ -157,7 +157,12 @@ impl MetaDataType<'_> for MetaData {
                 }               
             }
         }
-        Ok(MetaData::from_bytes(metadata)?)
+        let mut metadata = MetaData::from_bytes(metadata)?;
+        if let Some(_) = metadata.file_name() {
+            metadata.set_file_name(Some(location.unwrap().to_string_lossy().to_string()))
+        };
+
+        Ok(metadata)
     }
 }
 
@@ -231,6 +236,27 @@ impl MetaData {
             recipients: vec![],
             file_name: None,
         })
+    }
+
+    pub fn from_data(message_kind: MessageKind,
+                     message_length: u32,
+                     datetime: Bytes,
+                     author_id: u32,
+                     author_username: String,
+                     recipient_id: u32,
+                     recipients: Vec<String>,
+                     file_name: Option<String>) -> Self {
+
+        MetaData { 
+            message_kind,
+            message_length,
+            datetime,
+            author_id,
+            author_username,
+            recipient_id,
+            recipients,
+            file_name,
+        }
     }
 
     pub fn get_message_location(&self, location: &Path) -> PathBuf {

@@ -94,9 +94,12 @@ impl Client {
 
         self.user = user;
 
-        let _ = Self::get_waiting_messages(self.user.clone(), socket.clone(), waiting_messages_t,
-                                           self.config.request_incoming_messages_timer,
-                                        output_t.clone());
+        let _ = Self::get_waiting_messages(self.user.clone(),
+                                                socket.clone(), 
+                                                waiting_messages_t,
+                                                self.config.request_incoming_messages_timer,
+                                                self.config.save_location.clone(),
+                                                output_t.clone());
 
         Self::process_user_input(socket.clone(), self.user.clone(), output_t.clone());
 
@@ -173,7 +176,8 @@ impl Client {
                         if let ServerReply::User(user) = server_reply {
                             return Ok(user);
                         } else {
-                            todo!();
+                            println!("{:?}", server_reply);
+                            panic!();
                         }
                     }
                     _ => {
@@ -188,6 +192,7 @@ impl Client {
 
     fn get_waiting_messages(user: UserLite, socket: SocketAddr, _mpsc_transmitter: Sender<ImplementedMessage>, 
                             request_incoming_messages_timer: u64,
+                            location: PathBuf,
                             output_t: Sender<Output>) -> JoinHandle<()> {
 
         thread::Builder::new().name("GetWaitingMessages".to_string()).spawn(move || {
@@ -201,11 +206,10 @@ impl Client {
                     Ok(mut stream) => {
                         message.send(&mut stream).unwrap();
                         loop {
-                            let location = Path::new("D:\\stepa\\Documents\\Rust\\net_comms_logs\\client_logs");
-                            match ImplementedMessage::receive(&mut stream, Some(location.to_path_buf())) {
+                            match ImplementedMessage::receive(&mut stream, Some(location.clone())) {
                                 Ok(message) => {
     
-                                    let mut path = message.metadata().get_message_location(location);
+                                    let mut path = message.metadata().get_message_location(&location);
                                     path.push("message.ron");
                                     message.save(&path);
     
@@ -215,6 +219,7 @@ impl Client {
                                     let message_pretty = message.to_ron_pretty(None).unwrap();
                                     let mut file = fs::File::create("received_message.ron").unwrap();
                                     file.write_all(&message_pretty.into_buff()).unwrap();
+
 
                                     let message = format!(
                                         "{author} [{datetime}]: {content}",

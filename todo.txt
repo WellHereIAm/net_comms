@@ -16,10 +16,10 @@
 12. Documentation 
         Re-do ron module
         Message multiple implementations.
-        Pretty structs.
         Whole server
 
 13. Create custom parsers for struct sent through network.
 14. Look into reworking Packet and PacketKind to format of PacketPretty.
 15. Try make messages even smaller, without sacrificing readability.
 16. Maybe remove location argument in ContentType::receive, replace it with Config in client.
+17. Change Server and probably Client structs to independent functions. As it seems like those struct are pretty much useless.
