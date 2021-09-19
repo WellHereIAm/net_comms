@@ -1,14 +1,17 @@
-use std::path::PathBuf;
+use std::thread;
+use std::{path::PathBuf, sync::mpsc};
 use std::str::FromStr;
 
 use library::prelude::*;
 
 mod server;
 mod message;
-use server::Server;
 use utils::input;
 
 use rusqlite::{params, Connection};
+
+
+use server::*;
 
 
 // mod database;
@@ -18,13 +21,44 @@ fn main() -> Result<(), NetCommsError> {
     // D:\\stepa\\Documents\\Rust\\net_comms\\src\\bin\\server\\server_config.ron
     // C:\Documents\Rust\net_comms\src\bin\server\server_config.ron
     let config_location = get_config_location();
+    let config = ServerConfig::new(&config_location)?;
 
-    let server = Server::new(&config_location)?;
-    server.run()?;
+    let (can_start_t, can_start_r) = mpsc::channel::<bool>(); 
+    let (allowance_t, allowance_r) = mpsc::channel::<bool>(); 
+    let (finished_t, finished_r) = mpsc::channel::<bool>(); 
+    let (output_t, output_r) = mpsc::channel::<Output>();
 
-    loop {
-        
-    }
+    let listener = create_listener(&config);
+
+    let mut db_path = config.save_location.clone();
+    db_path.push("database.db");
+
+    create_database(&db_path).unwrap();
+    output(output_r);
+    server_input(output_t.clone());
+
+    check_maximum_active_connections(config.maximum_active_connections.clone(),
+                                         can_start_r, allowance_t, finished_r);
+
+    let output_t_listener = output_t.clone();
+    let listener_handle = thread::Builder::new().name("listener".to_string()).spawn(move || {
+            loop {
+                match listener.accept() {
+                    Ok((stream, _socket_addr)) => {
+                        handle_connection(stream,
+                                          can_start_t.clone(), &allowance_r, finished_t.clone(),
+                                          output_t_listener.clone(),
+                                          &config,
+                                          &db_path
+                        );
+                    }
+                    Err(e) => eprintln!("{}", e),
+                };
+            }
+        }).unwrap();
+
+    listener_handle.join();
+    Ok(())
 }
 
 fn get_config_location() -> PathBuf {

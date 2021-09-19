@@ -9,10 +9,10 @@
             0,
             97,
             71,
-            54,
-            153,
+            98,
+            195,
         ]),
-        author_id: 2,
+        author_id: 3,
         author_username: "man",
         recipient_id: 0,
         recipients: [
@@ -20,7 +20,7 @@
         ],
         file_name: None,
     ),
-    content: ("Moje heslo je pass"),
+    content: ("Hello there."),
     end_data: (
         size: 4,
         kind: End,
