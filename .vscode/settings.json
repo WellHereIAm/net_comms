@@ -17,5 +17,14 @@
         "trunc",
         "usize",
         "whitespaces"
-    ]
+    ],
+    "sqltools.connections": [
+        {
+            "previewLimit": 50,
+            "driver": "SQLite",
+            "database": "C:\\Documents\\Rust\\net_comms_logs\\server\\database.db",
+            "name": "NetCommsServer"
+        }
+    ],
+    "sqltools.useNodeRuntime": true
 }

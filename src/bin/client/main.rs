@@ -13,6 +13,7 @@ mod client;
 fn main() -> Result<(), NetCommsError> {
 
     // D:\\stepa\\Documents\\Rust\\net_comms\\src\bin\\client\\client_config.ron
+    // C:\Documents\Rust\net_comms\src\bin\client\client_config.ron
     let config_location = get_config_location();
 
     let client = Client::new(&config_location)?;

@@ -38,7 +38,9 @@ impl AuthToken {
         AuthToken (s)
     }
 
-
+    fn get(&self) -> String {
+        self.0.clone()
+    }
 }
 
 # [test]
@@ -78,6 +80,10 @@ impl Password {
         } else {
             false
         } 
+    }
+
+    pub fn get(&self) -> String {
+        self.0.clone()
     }
 }
 
@@ -194,5 +200,16 @@ impl User {
     /// Returns `username`.
     pub fn username(&self) -> String {
         self.username.clone()
+    }
+
+    pub fn password(&self) -> Password {
+        self.password.clone()
+    }
+
+    pub fn auth_token(&self) -> Option<String> {
+        match &self.auth_token {
+            Some(auth_token) => Some(auth_token.get()),
+            None => None,
+        }
     }
 }

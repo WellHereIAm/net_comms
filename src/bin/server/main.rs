@@ -16,6 +16,7 @@ use rusqlite::{params, Connection};
 fn main() -> Result<(), NetCommsError> {
 
     // D:\\stepa\\Documents\\Rust\\net_comms\\src\\bin\\server\\server_config.ron
+    // C:\Documents\Rust\net_comms\src\bin\server\server_config.ron
     let config_location = get_config_location();
 
     let server = Server::new(&config_location)?;

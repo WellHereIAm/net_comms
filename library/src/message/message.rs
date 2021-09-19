@@ -336,6 +336,10 @@ where
         self.metadata
     }
 
+    pub fn content(&self) -> C {
+        self.content.clone()
+    }
+
     /// Return a reference to `content`.
     pub fn content_ref<'b>(&'b self) -> &'b C {
         &self.content

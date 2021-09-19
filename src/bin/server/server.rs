@@ -1,13 +1,14 @@
+use chrono::{DateTime, Utc};
 use library::bytes::{FromBytes, IntoBytes};
-use library::prelude::IntoMessage;
+use library::prelude::{Bytes, IntoMessage, Packet, PacketKind};
 use rusqlite::{Connection, ToSql};
-use rusqlite::types::{Null, ToSqlOutput};
+use rusqlite::types::{Null, ToSqlOutput, ValueRef};
 use serde::{Serialize, Deserialize};
 use indoc::indoc;
 use shared::{ImplementedMessage, Request};
 
 use std::collections::HashMap;
-use std::hash::Hash;
+
 use std::{fs, io, thread, vec};
 use std::io::{Read, Write};
 use std::net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream};
@@ -21,10 +22,12 @@ use library::ron::{FromRon, ToRon};
 use library::message::Message;
 
 use shared::message::{Content, MessageKind, MetaData, ServerReply, ServerReplyRaw};
-use shared::user::{Password, User, UserLite, UserUnchecked};
+use shared::user::{Password, User, UserLite, UserUnchecked, user};
 use shared::config::{SERVER_ID, UNKNOWN_USERNAME, UNKNOWN_USER_ID};
 
 use utils::input;
+
+use crate::message;
 
 
 enum Output {
@@ -162,11 +165,12 @@ impl Server {
             "CREATE TABLE users (
                 id                  INTEGER NOT NULL,
                 username            TEXT NOT NULL,
-                registration_date   TEXT NOT NULL,
                 password            TEXT NOT NULL,
+                registration_date   TEXT NOT NULL,
                 auth_token          TEXT DEFAULT NULL
             )", []).unwrap();
 
+        // id should be later changed to AUTO INCREMENT
         db_conn.execute(
             "CREATE TABLE messages (
                 id                  INTEGER PRIMARY KEY NOT NULL,
@@ -193,30 +197,16 @@ impl Server {
                 recipient_id        INTEGER NOT NULL
             )", []).unwrap();
 
+        // Last available id using integer as bool.
         db_conn.execute(
             "CREATE TABLE available_ids (
-                id                  INTEGER
+                id                  INTEGER NOT NULL,
+                last                INTEGER NOT NULL
         )", []).unwrap();
 
         let first_id = 2;
 
-        db_conn.execute("INSERT INTO available_ids (id) VALUES (?1)", [first_id]).unwrap();
-
-        db_conn.execute("INSERT INTO users (id, username, password, registration_date) VALUES
-                            (?1, ?2, ?3, ?4)",
-                             ["2", "Lucy", "pass", "some"]).unwrap();
-
-        let mut stmt = db_conn.prepare("SELECT id, username FROM users").unwrap();
-        
-        let user_iter = stmt.query_map([], |row| {
-            Ok(UserLite::new(
-                row.get(0).unwrap(),
-                row.get(1).unwrap()))
-        }).unwrap();
-
-        for user in user_iter {
-            println!("{:?}", user.unwrap())
-        }
+        db_conn.execute("INSERT INTO available_ids (id, last) VALUES (?1, ?2)", [first_id, 1]).unwrap();
 
         Ok(())
     }
@@ -340,9 +330,7 @@ impl Server {
 
                     match Message::receive(&mut stream, Some(location.clone())) {
 
-                        Ok(message) => {
-                            
-                            insert_message_into_database(message.clone(), &mut db_conn);                            
+                        Ok(message) => {                        
 
                             let metadata: MetaData = message.metadata();
                             let message_kind: MessageKind = metadata.message_kind();
@@ -352,10 +340,10 @@ impl Server {
 
                             match message_kind {
                                 MessageKind::Text | MessageKind::File => {
-                                    let _ = Self::receive_user_to_user_message(message, waiting_messages, users, output.clone());      
+                                    let _ = insert_message_into_database(message, &mut db_conn);    
                                 },
                                 MessageKind::Request => {
-                                    Self::receive_request(message, stream, waiting_messages, users, ids, output);
+                                    Self::receive_request(message, stream, &mut db_conn, output);
                                 },
                                 _ => {}
                             }
@@ -384,265 +372,138 @@ impl Server {
         
     }
 
-    fn receive_user_to_user_message(message: ImplementedMessage,
-                                    waiting_messages: Arc<Mutex<HashMap<u32, Vec<ImplementedMessage>>>>,
-                                    users: Arc<Mutex<HashMap<String, User>>>,
-                                    output: Sender<Output>) -> Vec<String> {
-
-        let mut non_existent_recipients = Vec::new();
-
-        // let message_ron = message.to_ron().unwrap();
-
-        // let mut path = location.clone().to_owned();
-        // path.push("message.ron");
-
-        // let mut file = fs::OpenOptions::new().create(true).write(true).open(path).unwrap();
-        // file.write_fmt(format_args!("{}", message_ron)).unwrap();
-                            
-        for recipient in message.metadata().recipients() {
-
-            let users_guard = match users.lock() {
-                Ok(guard) => guard,
-                Err(poisoned) => poisoned.into_inner(),
-            };
-
-            match users_guard.get(&recipient) {
-                Some(user) => {
-                    let mut waiting_messages_guard = match waiting_messages.lock() {
-                        Ok(guard) => guard,
-                        Err(poisoned) => poisoned.into_inner(),
-                    };
-                    match waiting_messages_guard.get_mut(&user.id()) {
-                        Some(messages) => messages.push(message.clone()),
-                        None => {
-                            let messages = vec![message.clone()];
-                            waiting_messages_guard.insert(user.id(), messages);
-                        }
-                    }
-                },
-                // Should do something with those, send them back - probably? Save as log?
-                None => non_existent_recipients.push(recipient),
-            }            
-        }  
-        
-        if !non_existent_recipients.is_empty() {
-            output.send(Output::FromRun(format!("Non existent recipients of received message:\n{:?}", &non_existent_recipients))).unwrap();
-        }
-        non_existent_recipients
-    }
-
     fn receive_request(message: ImplementedMessage,
                        stream: TcpStream, 
-                       waiting_messages: Arc<Mutex<HashMap<u32, Vec<ImplementedMessage>>>>,
-                       users: Arc<Mutex<HashMap<String, User>>>,
-                       ids: Arc<Mutex<Vec<u32>>>,
-                       output: Sender<Output>) {
+                       db_conn: &mut Connection, 
+                       output: Sender<Output>) {  
 
-        let author = UserLite::new(message.metadata_ref().author_id(),
-                                           message.metadata_ref().author_username());
-        let request = Request::from_ron(&String::from_buff(&message.content_move().into_buff()).unwrap()).unwrap();
+        let metadata = message.metadata();
+        let _end_data = message.end_data();
+
+        let content = message.content_move();
+
+        let author = UserLite::new(metadata.author_id(),
+                                           metadata.author_username());
+
+        let request = Request::from_ron(&String::from_buff(&content.into_buff())
+                                        .unwrap())
+                                        .unwrap();
 
         match request {
             Request::Register(user_unchecked) => {
-                Self::user_register(stream, users, ids, user_unchecked, output);
+                Self::user_register(stream, db_conn, user_unchecked, output);
             },
             Request::Login(user_unchecked) => {
-                Self::user_login(stream, users, user_unchecked, output);
+                Self::user_login(stream, db_conn, user_unchecked, output);
             },
             Request::GetWaitingMessagesAuto => {
-                Self::return_waiting_messages(stream, waiting_messages, author, output);
+                Self::return_waiting_messages(stream, db_conn, author, output);
             },
             Request::Unknown => todo!(),
         }
     }
 
     fn user_register(mut stream: TcpStream,
-                     users: Arc<Mutex<HashMap<String, User>>>,
-                     ids: Arc<Mutex<Vec<u32>>>,
+                     db_conn: &mut Connection,
                      user_unchecked: UserUnchecked,
                      output: Sender<Output>) {
 
         let UserUnchecked {username, password} = user_unchecked;
 
-        let default_user = UserLite::default_user();
-
-        let mut users_guard = match users.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-
-        match users_guard.get(&username) {
-            Some(_) => {
-                let server_reply = ServerReplyRaw::Error("This username already exists.".to_string(), default_user);
+        // Checks if that username already exists.
+        match get_user_id_from_username(db_conn, &username) {
+            Ok(id) => {
+                let server_reply = ServerReplyRaw::Error(
+                    "This username already exists.".to_string(),
+                    UserLite::default_user(),
+                );
                 let message = server_reply.into_message().unwrap();
-
-                if let Err(e) =  message.send(&mut stream) {
-                    let err_content = format!(indoc!{
-                        "
-                        Failed to send an error message:
-                        \"This username already exists.\",
-                        in Server::user_register() , case: user already exist.
-                        error:
-                        {}
-                        "
-                    }, e);
-                    output.send(Output::Error(err_content)).unwrap();
-                }
+                message.send(&mut stream).unwrap();
             },
-            None => {
-                let mut ids_guard = match ids.lock() {
-                    Ok(guard) => guard,
-                    Err(poisoned) => poisoned.into_inner(),
-                };
+            Err(_) => {
+                let id = get_available_id(db_conn);
+                let user = User::new(id as u32, username, Password::new(password));
 
-                let ids_length = ids_guard.len();
-                let id = ids_guard.remove(ids_length - 1);
-                if ids_guard.len() == 0 {
-                    ids_guard.push(id + 1);
-                }
-                drop(ids_guard);
-                
-                let user = User::new(id as u32, username, Password::new(password)); 
+                insert_new_user(db_conn, &user);
+
                 output.send(Output::FromRun(user.clone().to_ron_pretty(None).unwrap())).unwrap();
                 let user_lite = UserLite::from_user(&user);
-                
-                users_guard.insert(user.username(), user);
-                drop(users_guard);
 
-
-                let server_reply = ServerReplyRaw::User(user_lite, default_user);
+                let server_reply = ServerReplyRaw::User(user_lite, UserLite::default_user());
                 let message = server_reply.into_message().unwrap();
-                if let Err(e) =  message.send(&mut stream) {
-                    let err_content = format!(indoc!{
-                        "
-                        Failed to send an correct User struct,
-                        in Server::user_register().
-                        error:
-                        {}
-                        "
-                    }, e);
-                    output.send(Output::Error(err_content)).unwrap();
-                }
+                message.send(&mut stream).unwrap();
             },
         }
     }
 
-    fn user_login(mut stream: TcpStream, users: Arc<Mutex<HashMap<String, User>>>, user_unchecked: UserUnchecked,
-                  output: Sender<Output>) {
+    fn user_login(mut stream: TcpStream,
+                  db_conn: &mut Connection,
+                  user_unchecked: UserUnchecked,
+                  output: Sender<Output>) -> Result<(), ()> {
 
-        let username = user_unchecked.username;
-        let password = user_unchecked.password;
+        let UserUnchecked {username, password} = user_unchecked;
+        let provided_password = password;
+                    
+        match get_user_id_from_username(db_conn, &username) {
+            Ok(id) => {
+                let correct_password = match get_user_password(db_conn, id) {
+                    Ok(password) => password,
+                    Err(_) => {
+                        let server_reply = ServerReplyRaw::Error(
+                            "Username does not exist.".to_string(),
+                             UserLite::default_user(),
+                        );
+                        let message = server_reply.into_message().unwrap();
+                        message.send(&mut stream).unwrap();
+                        return Err(())
+                    },
+                };
 
-        let users_guard = match users.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        };
+                let correct_password = Password::from_hash(correct_password);
 
-        match users_guard.get(&username) {
-            Some(user) => {
-                if user.verify(password) {
-                    let default_user = UserLite::default_user();
-                    let server_reply = ServerReplyRaw::User(UserLite::from_user(user), default_user);
+                if correct_password.verify(provided_password) {
+                    let user_lite = UserLite::new(id as u32, username);
+                    let server_reply = ServerReplyRaw::User(user_lite, UserLite::default_user());
                     let message = server_reply.into_message().unwrap();
-                    if let Err(e) =  message.send(&mut stream) {
-                        let err_content = format!(indoc!{
-                            "
-                            Failed to send an User struct,
-                            in Server::user_login().
-                            error:
-                            {}
-                            "
-                        }, e);
-                        output.send(Output::Error(err_content)).unwrap();
-                    }
+                    message.send(&mut stream).unwrap();
                 } else {
-                    let default_user = UserLite::default_user();
-                    let server_reply = ServerReplyRaw::Error("Incorrect password.".to_string(), default_user);
+                    let server_reply = ServerReplyRaw::Error(
+                        "Incorrect password.".to_string(),
+                         UserLite::default_user(),
+                    );
                     let message = server_reply.into_message().unwrap();
-                    if let Err(e) =  message.send(&mut stream) {
-                        let err_content = format!(indoc!{
-                            "
-                            Failed to send an error message:
-                            \"Incorrect password\"
-                            in Server::user_login().
-                            error:
-                            {}
-                            "
-                        }, e);
-                        output.send(Output::Error(err_content)).unwrap();
-                    }
-                }
+                    message.send(&mut stream).unwrap();
+                }                
             },
-            None => {
+            Err(_) => {
                 let default_user = UserLite::default_user();
-                let server_reply = ServerReplyRaw::Error(format!("User with username: {} does not exist", username), default_user);
+                let server_reply = ServerReplyRaw::Error(
+                    format!("User with username: {} does not exist", username),
+                    UserLite::default_user(),
+                );
                 let message = server_reply.into_message().unwrap();
-
-                if let Err(e) =  message.send(&mut stream) {
-                    let err_content = format!(indoc!{
-                        "
-                        Failed to send an error message:
-                        \"User with username: {} does not exist\"
-                        in Server::user_login().
-                        error:
-                        {}
-                        "
-                    }, username, e);
-                    output.send(Output::Error(err_content)).unwrap();
-                }
-            }
+                message.send(&mut stream).unwrap();
+            },
         }
+
+        Ok(())
     }
 
-    fn return_waiting_messages(mut stream: TcpStream, waiting_messages: Arc<Mutex<HashMap<u32, Vec<ImplementedMessage>>>>,
+    fn return_waiting_messages(mut stream: TcpStream,
+                               db_conn: &mut Connection, 
                                author: UserLite,
                                output: Sender<Output>) {
 
-        let mut waiting_messages_guard = match waiting_messages.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
+        let messages = match get_waiting_messages_ids(db_conn, author.id() as usize) {
+            Ok(messages) => messages,
+            Err(_) => Vec::new(),
         };
 
-        if let Some(messages) = waiting_messages_guard.get_mut(&author.id()) {
-            let messages_length = messages.len();
-                for index in 0..messages_length {
-                    let mut message = messages.remove(index); 
+        for message_id in messages {
+            let message = get_message(db_conn, message_id).unwrap();
+            message.send(&mut stream).unwrap();
 
-                    let mut metadata = message.metadata();
-                    metadata.set_author_id(SERVER_ID);
-                    metadata.set_recipients(vec![author.username()]);
-                    metadata.set_recipient_id(author.id());
-                    message.set_metadata(metadata);
-
-                    match message.metadata().file_name() {
-                        Some(path) => {
-                            if let Err(e) = ImplementedMessage::send_file(&mut stream, Path::new(&path)) {
-                                let err_content = format!(indoc!{
-                                    "
-                                    Failed to send a file,
-                                    in Server::return_waiting_messages().
-                                    error:
-                                    {}
-                                    "
-                                }, e);
-                                output.send(Output::Error(err_content)).unwrap();
-                            }
-                        },               
-                        None => {
-                            if let Err(e) = message.send(&mut stream) {
-                                let err_content = format!(indoc!{
-                                    "
-                                    Failed to send back a message,
-                                    in Server::return_waiting_messages().
-                                    error:
-                                    {}
-                                    "
-                                }, e);
-                                output.send(Output::Error(err_content)).unwrap();
-                            }
-                        },
-                    }
-                }
+            delete_waiting_message(db_conn, author.id() as usize).unwrap();
         }
     }
 
@@ -669,13 +530,203 @@ fn get_new_message_id(db_conn: &mut Connection) -> usize {
     id
 }
 
+fn get_user_id_from_username(db_conn: &mut Connection,
+                             username: &str) -> Result<usize, ()> {
 
-fn insert_message_into_database(message: ImplementedMessage, db_conn: &mut Connection) {
+    let mut stmt = db_conn.prepare("SELECT id FROM users WHERE username=?1 LIMIT 1").unwrap();
+    let mut id_iter = stmt.query_map([username], |row| {
+        let id: usize = match row.get(0) {
+            Ok(id) => id,
+            Err(_) => 0,
+        };
+        Ok(id)
+    }).unwrap();
 
-    let id = get_new_message_id(db_conn);
+    match id_iter.next() {
+        Some(id) => return  Ok(id.unwrap()),
+        None => return Err(()),
+    }
+}
+
+fn get_available_id(db_conn: &mut Connection) -> usize {
+
+    let mut stmt = db_conn.prepare("SELECT id, last FROM available_ids LIMIT 1").unwrap();
+    let mut id = stmt.query_map([], |row| {
+        let id: usize = row.get(0).unwrap();
+        let last: usize = row.get(1).unwrap();
+
+        if last == 0 {
+            db_conn.execute("DELETE FROM available_ids WHERE id=?1", [id]).unwrap();
+        } else {
+            db_conn.execute("UPDATE available_ids
+                                 SET id = id + 1
+                                 WHERE last > 1", []).unwrap();
+        }
+
+        Ok(id)
+    }).unwrap().next().unwrap().unwrap();
+
+    id
+}
+
+fn get_user_password(db_conn: &mut Connection, user_id: usize) -> Result<String, ()> {
+
+    let mut stmt = db_conn.prepare("SELECT password FROM users WHERE id=?1").unwrap();
+
+    let mut password_iter = stmt.query_map([user_id], |row| {
+        let password: String = row.get(0).unwrap();
+
+        Ok(password)
+
+    }).unwrap();
+
+    match password_iter.next() {
+        Some(password) => return  Ok(password.unwrap()),
+        None => return Err(()),
+    }
+}
+
+fn get_waiting_messages_ids(db_conn: &mut Connection,
+                            user_id: usize) -> Result<Vec<usize>, ()> {
+
+    let mut stmt = db_conn.prepare("SELECT message_id
+                                             FROM waiting_messages
+                                             WHERE recipient_id=?1").unwrap();
+
+    let messages_ids_iter = stmt.query_map([user_id], |row| {
+        let message_id: usize = row.get(0).unwrap(); 
+
+        Ok(message_id)
+    }).unwrap();
+
+    let messages_ids: Vec<usize> = messages_ids_iter.map(|id| id.unwrap()).collect();
+    
+    if messages_ids.is_empty() {
+        Err(())
+    } else {
+        Ok(messages_ids)
+    }
+}
+
+fn get_message(db_conn: &mut Connection, message_id: usize) -> Result<ImplementedMessage, ()> {
+
+    let recipients = get_message_recipients_ids(db_conn, message_id).unwrap();
+    let recipients: Vec<String> = recipients.iter()
+                                            .map(|recip| format!("{}", recip))
+                                            .collect();
+
+
+    let mut stmt = db_conn.prepare("SELECT *
+                                                 FROM messages
+                                                 WHERE id=?1").unwrap();
+
+    let mut message_iter = stmt.query_map([message_id], |row| {
+
+        let mut message = ImplementedMessage::new();
+
+        let kind: String = row.get(1).unwrap();
+        let kind = MessageKind::from_ron(&kind).unwrap();
+
+        let datetime: String = row.get(3).unwrap();
+        let datetime = DateTime::parse_from_rfc3339(&datetime).unwrap();
+        let datetime = datetime.with_timezone(&Utc);
+
+        let file_name = match row.get_ref_unwrap(7) {
+            ValueRef::Null => None,
+            ValueRef::Text(path) => {
+                let path_string = String::from_buff(path).unwrap();
+                Some(path_string)
+            },
+            _ => panic!()
+        };
+
+        let metadata = MetaData::from_data(
+            kind,
+            row.get(2).unwrap(),
+            datetime.into_bytes(),
+            row.get(4).unwrap(),
+            row.get(5).unwrap(),
+            row.get(6).unwrap(),
+            recipients.clone(),
+            file_name,
+        );
+        
+        let content = row.get(8).unwrap();
+        let content = Content::with_data(content);
+
+        let end_data: String = row.get(9).unwrap();
+        let end_data = Packet::new(PacketKind::End, Bytes::from_vec(end_data.into_bytes()));
+
+        message.set_metadata(metadata);
+        message.set_content(content);
+        message.set_end_data(end_data);
+
+        Ok(message)
+
+    }).unwrap();
+
+    match message_iter.next() {
+        Some(message) => return  Ok(message.unwrap()),
+        None => return Err(()),
+    }
+}
+
+fn get_message_recipients_ids(db_conn: &mut Connection, message_id: usize) -> Result<Vec<usize>, ()> {
+
+    let mut stmt = db_conn.prepare("SELECT recipient_id
+                                                 FROM message_recipients
+                                                 WHERE message_id=?1").unwrap();    
+    let recipients_ids_iter = stmt.query_map([message_id], |row| {
+        let recipient: usize = row.get(0).unwrap();
+        Ok(recipient)
+    }).unwrap();
+
+    let recipients: Vec<usize> = recipients_ids_iter.map(
+                                                |recipient| recipient.unwrap()
+                                            )
+                                            .collect();
+    
+    if recipients.is_empty() {
+        Err(())
+    } else {
+        Ok(recipients)
+    }
+}
+
+fn insert_new_user(db_conn: &mut Connection, user: &User) {
+
+    let id = user.id();
+    let id = id.to_sql().unwrap();
+
+    let username = user.username();
+    let username = username.to_sql().unwrap();
+
+    let password = user.password().get();
+    let password = password.to_sql().unwrap();
+
+    let registration_date = "later".to_sql().unwrap();
+
+    let auth_token = user.auth_token();
+    let auth_token = auth_token.to_sql().unwrap();
+
+    db_conn.execute("INSERT INTO users
+                         (id, username, password, registration_date, auth_token)
+                         VALUES (?1, ?2, ?3, ?4, ?5)", 
+                        [
+                            id,
+                            username,
+                            password,
+                            registration_date,
+                            auth_token,
+                        ]).unwrap();
+}
+
+
+fn insert_message_into_database(message: ImplementedMessage, db_conn: &mut Connection) -> Vec<String> {
 
     let metadata = message.metadata_ref();
 
+    let id = get_new_message_id(db_conn);
     let id = id.to_sql().unwrap();
 
     let kind = metadata.message_kind().to_ron().unwrap();
@@ -699,7 +750,7 @@ fn insert_message_into_database(message: ImplementedMessage, db_conn: &mut Conne
     let file_name = metadata.file_name();
     let file_name = file_name.to_sql().unwrap();
 
-    let content = message.content_ref().to_string();
+    let content = message.content().into_string();
     let content = content.to_sql().unwrap();
 
     // Change this later so it can accommodate also non string data.
@@ -711,7 +762,7 @@ fn insert_message_into_database(message: ImplementedMessage, db_conn: &mut Conne
                             recipient_id, file_name, content, end_data)
                          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
                             [
-                                id,
+                                id.clone(),
                                 kind,
                                 length,
                                 datetime,
@@ -723,4 +774,42 @@ fn insert_message_into_database(message: ImplementedMessage, db_conn: &mut Conne
                                 end_data,
                             ]).unwrap();
 
+    let mut non_existent_recipients = Vec::new();
+    
+    for recipient in metadata.recipients() {
+        match get_user_id_from_username(db_conn, &recipient) {
+            Ok(recipient_id) => {
+
+                let recipient_id = recipient_id.to_sql().unwrap();
+
+                db_conn.execute("INSERT INTO message_recipients
+                                (message_id, recipient_id)
+                                VALUES (?1, ?2)",
+                                [
+                                    id.clone(),
+                                    recipient_id.clone()
+                                ]).unwrap();
+                db_conn.execute("INSERT INTO waiting_messages
+                                (message_id, recipient_id)
+                                VALUES (?1, ?2)",
+                                [
+                                    id.clone(),
+                                    recipient_id
+                                ]).unwrap();
+            },
+            Err(_) => {
+                non_existent_recipients.push(recipient);
+            },
+        }
+    }
+
+    non_existent_recipients
+}
+
+fn delete_waiting_message(db_conn: &mut Connection, recipient_id: usize) -> Result<(), ()> {
+
+    db_conn.execute("DELETE FROM waiting_messages
+                         WHERE recipient_id=?1", [recipient_id]).unwrap();
+    
+    Ok(())
 }
