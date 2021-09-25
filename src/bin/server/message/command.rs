@@ -1,1 +1,1 @@
-pub enum Command {}
+pub enum _Command {}

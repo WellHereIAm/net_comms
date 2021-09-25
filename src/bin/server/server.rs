@@ -1,11 +1,11 @@
 use chrono::{DateTime, Utc};
-use library::bytes::{FromBytes, IntoBytes};
-use library::prelude::{Bytes, IntoMessage, Packet, PacketKind};
+
 use rusqlite::{Connection, ToSql};
-use rusqlite::types::{Null, ToSqlOutput, ValueRef};
+use rusqlite::types::ValueRef;
+
 use serde::{Serialize, Deserialize};
+
 use indoc::indoc;
-use shared::{ImplementedMessage, Request};
 
 use std::{fs, io, thread};
 use std::io::{Read, Write};
@@ -17,10 +17,14 @@ use std::sync::mpsc::{Receiver, Sender};
 use library::error::{NetCommsError, NetCommsErrorKind};
 use library::ron::{FromRon, ToRon};
 use library::message::Message;
+use library::bytes::{Bytes, FromBytes, IntoBytes};
+use library::message::IntoMessage;
+use library::packet::{Packet, PacketKind};
 
-use shared::message::{Content, MessageKind, MetaData, ServerReply, ServerReplyRaw};
-use shared::user::{Password, User, UserLite, UserUnchecked, user};
-use shared::config::{SERVER_ID, UNKNOWN_USERNAME, UNKNOWN_USER_ID};
+use shared::message::{Content, MessageKind, MetaData, ServerReplyRaw};
+use shared::user::{Password, User, UserLite, UserUnchecked};
+use shared::{ImplementedMessage, Request};
+
 
 use utils::input;
 
@@ -99,7 +103,7 @@ pub fn check_maximum_active_connections(max: u16,
     }).unwrap();
 }
 
-pub fn open_database(db_path: &Path, output_t: Sender<Output>) -> Result<(), NetCommsError> {
+pub fn open_database(db_path: &Path, _output_t: Sender<Output>) -> Result<(), NetCommsError> {
 
         
     let db_conn =  Connection::open(db_path).unwrap();
@@ -328,7 +332,7 @@ fn receive_request(message: ImplementedMessage,
             user_register(stream, db_conn, user_unchecked, output);
         },
         Request::Login(user_unchecked) => {
-            user_login(stream, db_conn, user_unchecked, output);
+            user_login(stream, db_conn, user_unchecked, output).unwrap();
         },
         Request::GetWaitingMessagesAuto => {
             return_waiting_messages(stream, db_conn, author, output);
@@ -346,7 +350,7 @@ fn user_register(mut stream: TcpStream,
 
     // Checks if that username already exists.
     match get_user_id_from_username(db_conn, &username) {
-        Ok(id) => {
+        Ok(_) => {
             let server_reply = ServerReplyRaw::Error(
                 "This username already exists.".to_string(),
                 UserLite::default_user(),
@@ -373,7 +377,7 @@ fn user_register(mut stream: TcpStream,
 fn user_login(mut stream: TcpStream,
                   db_conn: &mut Connection,
                   user_unchecked: UserUnchecked,
-                  output: Sender<Output>) -> Result<(), ()> {
+                  _output: Sender<Output>) -> Result<(), ()> {
 
     let UserUnchecked {username, password} = user_unchecked;
     let provided_password = password;
@@ -408,7 +412,6 @@ fn user_login(mut stream: TcpStream,
             }                
         },
         Err(_) => {
-            let default_user = UserLite::default_user();
             let server_reply = ServerReplyRaw::Error(
                 format!("User with username: {} does not exist", username),
                 UserLite::default_user(),
@@ -423,7 +426,7 @@ fn user_login(mut stream: TcpStream,
 fn return_waiting_messages(mut stream: TcpStream,
                            db_conn: &mut Connection, 
                            author: UserLite,
-                           output: Sender<Output>) {
+                           _output: Sender<Output>) {
 
     let messages = match get_waiting_messages_ids(db_conn, author.id() as usize) {
         Ok(messages) => messages,
@@ -474,12 +477,11 @@ pub fn get_user_id_from_username(db_conn: &mut Connection,
 pub fn get_available_id(db_conn: &mut Connection) -> usize {
 
     let mut stmt = db_conn.prepare("SELECT id, last FROM available_ids LIMIT 1").unwrap();
-    let mut id = stmt.query_map([], |row| {
-    let id: usize = row.get(0).unwrap();
-    let last: usize = row.get(1).unwrap();
+    let id = stmt.query_map([], |row| {
+        let id: usize = row.get(0).unwrap();
+        let last: usize = row.get(1).unwrap();
 
     if last == 0 {
-        println!("Is not last.");
         db_conn.execute("DELETE FROM available_ids WHERE id=?1", [id]).unwrap();
     } else {
         db_conn.execute("UPDATE available_ids

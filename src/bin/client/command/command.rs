@@ -1,5 +1,9 @@
-use library::{bytes::{Bytes, IntoBytes}, error::{NetCommsError, NetCommsErrorKind}, prelude::{IntoMessage, ToRon, Packet, PacketKind}};
-use shared::{Content, ImplementedMessage, MessageKind, MetaData, Request, config::{SERVER_ID, SERVER_USERNAME}, user::{User, UserLite, UserUnchecked}};
+use library::{bytes::{Bytes, IntoBytes},
+              error::{NetCommsError, NetCommsErrorKind},
+              prelude::{IntoMessage, ToRon, Packet, PacketKind}};
+use shared::{Content, ImplementedMessage, MessageKind, MetaData, Request,
+             config::{SERVER_ID, SERVER_USERNAME}, 
+             user::{UserLite, UserUnchecked}};
 
 
 # [derive(Debug)]

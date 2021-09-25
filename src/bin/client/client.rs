@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use std::net::{Ipv4Addr, SocketAddr, TcpStream};
+use std::net::{SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::thread::JoinHandle;
@@ -16,8 +15,6 @@ use library::error::{NetCommsError, NetCommsErrorKind};
 use shared::message::ServerReply;
 use shared::{ImplementedMessage, MessageKind, RequestRaw};
 use shared::user::UserLite;
-
-use utils::input;
 
 use crate::command::{self, CommandRaw};
 
@@ -146,10 +143,11 @@ impl Client {
             }
         }).unwrap();
     }
-    fn input(output_t: Sender<Output>) {
+
+    fn _input(_output_t: Sender<Output>) {
         thread::Builder::new().name("input".to_string()).spawn(move|| {
             loop {
-                let cmd_raw = CommandRaw::get::<String>(None);
+                let _cmd_raw = CommandRaw::get::<String>(None);
             }
         }).unwrap();
     }
@@ -246,7 +244,7 @@ impl Client {
         }).unwrap()
     }
 
-    fn process_user_input(socket: SocketAddr, user: UserLite, output_t: Sender<Output>) {
+    fn process_user_input(socket: SocketAddr, user: UserLite, _output_t: Sender<Output>) {
 
         loop {
             let cmd_raw = CommandRaw::get::<String>(None);
