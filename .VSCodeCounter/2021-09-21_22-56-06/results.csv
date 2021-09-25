@@ -1,0 +1,49 @@
+"filename", "language", "Rust", "TOML", "Rusty Object Notation (RON)", "comment", "blank", "total"
+"c:\Documents\Rust\net_comms\Cargo.toml", "TOML", 0, 22, 0, 1, 10, 33
+"c:\Documents\Rust\net_comms\library\Cargo.toml", "TOML", 0, 12, 0, 1, 2, 15
+"c:\Documents\Rust\net_comms\library\src\bytes\bytes.rs", "Rust", 85, 0, 0, 28, 33, 146
+"c:\Documents\Rust\net_comms\library\src\bytes\from_bytes.rs", "Rust", 127, 0, 0, 16, 42, 185
+"c:\Documents\Rust\net_comms\library\src\bytes\into_bytes.rs", "Rust", 40, 0, 0, 3, 16, 59
+"c:\Documents\Rust\net_comms\library\src\bytes\mod.rs", "Rust", 6, 0, 0, 0, 1, 7
+"c:\Documents\Rust\net_comms\library\src\error\error.rs", "Rust", 328, 0, 0, 36, 14, 378
+"c:\Documents\Rust\net_comms\library\src\error\error_kind.rs", "Rust", 26, 0, 0, 20, 11, 57
+"c:\Documents\Rust\net_comms\library\src\error\mod.rs", "Rust", 4, 0, 0, 0, 1, 5
+"c:\Documents\Rust\net_comms\library\src\lib.rs", "Rust", 12, 0, 0, 16, 6, 34
+"c:\Documents\Rust\net_comms\library\src\message\content_type.rs", "Rust", 17, 0, 0, 16, 4, 37
+"c:\Documents\Rust\net_comms\library\src\message\into_message.rs", "Rust", 8, 0, 0, 2, 2, 12
+"c:\Documents\Rust\net_comms\library\src\message\message.rs", "Rust", 236, 0, 0, 81, 62, 379
+"c:\Documents\Rust\net_comms\library\src\message\metadata_type.rs", "Rust", 10, 0, 0, 10, 4, 24
+"c:\Documents\Rust\net_comms\library\src\message\mod.rs", "Rust", 8, 0, 0, 0, 2, 10
+"c:\Documents\Rust\net_comms\library\src\packet\mod.rs", "Rust", 4, 0, 0, 1, 1, 6
+"c:\Documents\Rust\net_comms\library\src\packet\packet.rs", "Rust", 158, 0, 0, 69, 52, 279
+"c:\Documents\Rust\net_comms\library\src\packet\packet_kind.rs", "Rust", 75, 0, 0, 12, 26, 113
+"c:\Documents\Rust\net_comms\library\src\ron\from_ron.rs", "Rust", 15, 0, 0, 7, 3, 25
+"c:\Documents\Rust\net_comms\library\src\ron\mod.rs", "Rust", 4, 0, 0, 0, 1, 5
+"c:\Documents\Rust\net_comms\library\src\ron\to_ron.rs", "Rust", 32, 0, 0, 11, 8, 51
+"c:\Documents\Rust\net_comms\library\tests\bytes.rs", "Rust", 7, 0, 0, 0, 2, 9
+"c:\Documents\Rust\net_comms\library\tests\main.rs", "Rust", 4, 0, 0, 0, 2, 6
+"c:\Documents\Rust\net_comms\library\tests\packet.rs", "Rust", 7, 0, 0, 0, 3, 10
+"c:\Documents\Rust\net_comms\received_message.ron", "Rusty Object Notation (RON)", 0, 0, 29, 0, 0, 29
+"c:\Documents\Rust\net_comms\src\bin\client\client.rs", "Rust", 223, 0, 0, 3, 45, 271
+"c:\Documents\Rust\net_comms\src\bin\client\client_config.ron", "Rusty Object Notation (RON)", 0, 0, 6, 0, 0, 6
+"c:\Documents\Rust\net_comms\src\bin\client\command\command.rs", "Rust", 73, 0, 0, 18, 31, 122
+"c:\Documents\Rust\net_comms\src\bin\client\command\command_raw.rs", "Rust", 235, 0, 0, 66, 50, 351
+"c:\Documents\Rust\net_comms\src\bin\client\command\mod.rs", "Rust", 4, 0, 0, 0, 1, 5
+"c:\Documents\Rust\net_comms\src\bin\client\main.rs", "Rust", 26, 0, 0, 3, 11, 40
+"c:\Documents\Rust\net_comms\src\bin\client\small_test.rs", "Rust", 34, 0, 0, 1, 14, 49
+"c:\Documents\Rust\net_comms\src\bin\server\main.rs", "Rust", 56, 0, 0, 4, 20, 80
+"c:\Documents\Rust\net_comms\src\bin\server\message\command.rs", "Rust", 1, 0, 0, 0, 1, 2
+"c:\Documents\Rust\net_comms\src\bin\server\message\mod.rs", "Rust", 2, 0, 0, 0, 1, 3
+"c:\Documents\Rust\net_comms\src\bin\server\server.rs", "Rust", 591, 0, 0, 6, 137, 734
+"c:\Documents\Rust\net_comms\src\bin\server\server_config.ron", "Rusty Object Notation (RON)", 0, 0, 6, 0, 0, 6
+"c:\Documents\Rust\net_comms\src\shared\config.rs", "Rust", 6, 0, 0, 8, 2, 16
+"c:\Documents\Rust\net_comms\src\shared\lib.rs", "Rust", 6, 0, 0, 0, 4, 10
+"c:\Documents\Rust\net_comms\src\shared\message\content.rs", "Rust", 101, 0, 0, 0, 33, 134
+"c:\Documents\Rust\net_comms\src\shared\message\message_kind.rs", "Rust", 71, 0, 0, 2, 19, 92
+"c:\Documents\Rust\net_comms\src\shared\message\metadata.rs", "Rust", 242, 0, 0, 62, 74, 378
+"c:\Documents\Rust\net_comms\src\shared\message\mod.rs", "Rust", 10, 0, 0, 0, 1, 11
+"c:\Documents\Rust\net_comms\src\shared\message\request.rs", "Rust", 47, 0, 0, 10, 22, 79
+"c:\Documents\Rust\net_comms\src\shared\message\server_reply.rs", "Rust", 58, 0, 0, 6, 16, 80
+"c:\Documents\Rust\net_comms\src\shared\user\mod.rs", "Rust", 2, 0, 0, 0, 1, 3
+"c:\Documents\Rust\net_comms\src\shared\user\user.rs", "Rust", 157, 0, 0, 10, 48, 215
+"Total", "-", 3158, 34, 41, 529, 839, 4601

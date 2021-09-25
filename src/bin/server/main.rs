@@ -8,11 +8,7 @@ mod server;
 mod message;
 use utils::input;
 
-use rusqlite::{params, Connection};
-
-
 use server::*;
-
 
 // mod database;
 // ERROR HANDLING
@@ -28,13 +24,16 @@ fn main() -> Result<(), NetCommsError> {
     let (finished_t, finished_r) = mpsc::channel::<bool>(); 
     let (output_t, output_r) = mpsc::channel::<Output>();
 
+    // Creates output thread.
+    output(output_r);
+    output_t.send(Output::FromRun("Starting server...".to_string())).unwrap();
+
     let listener = create_listener(&config);
 
     let mut db_path = config.save_location.clone();
     db_path.push("database.db");
 
-    create_database(&db_path).unwrap();
-    output(output_r);
+    open_database(&db_path, output_t.clone()).unwrap();
     server_input(output_t.clone());
 
     check_maximum_active_connections(config.maximum_active_connections.clone(),
@@ -57,7 +56,9 @@ fn main() -> Result<(), NetCommsError> {
             }
         }).unwrap();
 
-    listener_handle.join();
+    output_t.send(Output::FromRun("Server started.".to_string())).unwrap();
+
+    listener_handle.join().unwrap();
     Ok(())
 }
 

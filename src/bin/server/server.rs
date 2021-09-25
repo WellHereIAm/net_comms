@@ -7,14 +7,11 @@ use serde::{Serialize, Deserialize};
 use indoc::indoc;
 use shared::{ImplementedMessage, Request};
 
-use std::collections::HashMap;
-
-use std::{fs, io, thread, vec};
+use std::{fs, io, thread};
 use std::io::{Read, Write};
 use std::net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::sync::{Arc, Mutex, mpsc};
 use std::sync::mpsc::{Receiver, Sender};
 
 use library::error::{NetCommsError, NetCommsErrorKind};
@@ -26,9 +23,6 @@ use shared::user::{Password, User, UserLite, UserUnchecked, user};
 use shared::config::{SERVER_ID, UNKNOWN_USERNAME, UNKNOWN_USER_ID};
 
 use utils::input;
-
-use crate::message;
-
 
 pub enum Output {
     Error(String),
@@ -105,22 +99,24 @@ pub fn check_maximum_active_connections(max: u16,
     }).unwrap();
 }
 
-pub fn create_database(db_path: &Path) -> Result<(), NetCommsError> {
+pub fn open_database(db_path: &Path, output_t: Sender<Output>) -> Result<(), NetCommsError> {
 
         
-    let db_conn = Connection::open(db_path).unwrap();
+    let db_conn =  Connection::open(db_path).unwrap();
 
-    db_conn.execute(
+    if let Err(_) = db_conn.execute(
         "CREATE TABLE users (
             id                  INTEGER NOT NULL,
             username            TEXT NOT NULL,
             password            TEXT NOT NULL,
             registration_date   TEXT NOT NULL,
             auth_token          TEXT DEFAULT NULL
-        )", []).unwrap();
+        )", []) {
+        // Falls here if table already exist, check if table has correct structure is necessary.
+    }
 
     // id should be later changed to AUTO INCREMENT
-    db_conn.execute(
+    if let Err(_) = db_conn.execute(
         "CREATE TABLE messages (
             id                  INTEGER PRIMARY KEY NOT NULL,
             kind                TEXT NOT NULL,
@@ -132,26 +128,34 @@ pub fn create_database(db_path: &Path) -> Result<(), NetCommsError> {
             file_name           TEXT,
             content             TEXT,
             end_data            TEXT
-    )", []).unwrap();
+    )", []) {
+        // Falls here if table already exist, check if table has correct structure is necessary.
+    };
 
-    db_conn.execute(
+    if let Err(_) = db_conn.execute(
         "CREATE TABLE message_recipients (
             message_id          INTEGER NOT NULL,
             recipient_id        INTEGER NOT NULL
-    )", []).unwrap();
+    )", []) {
+        // Falls here if table already exist, check if table has correct structure is necessary.
+    };
 
-    db_conn.execute(
+    if let Err(_) = db_conn.execute(
         "CREATE TABLE waiting_messages (
             message_id          INTEGER NOT NULL,
             recipient_id        INTEGER NOT NULL
-        )", []).unwrap();
+        )", []) {
+        // Falls here if table already exist, check if table has correct structure is necessary.
+    };
 
     // Last available id using integer as bool.
-    db_conn.execute(
+    if let Err(_) = db_conn.execute(
         "CREATE TABLE available_ids (
             id                  INTEGER NOT NULL,
             last                INTEGER NOT NULL
-    )", []).unwrap();
+    )", []) {
+        // Falls here if table already exist, check if table has correct structure is necessary.
+    };
 
     let first_id = 2;
 
@@ -433,7 +437,8 @@ fn return_waiting_messages(mut stream: TcpStream,
     }
 }
 
-fn get_new_message_id(db_conn: &mut Connection) -> usize {
+
+pub fn get_new_message_id(db_conn: &mut Connection) -> usize {
 
     let mut stmt = db_conn.prepare("SELECT MAX(id) FROM messages LIMIT 1").unwrap();
     let mut id = stmt.query_map([], |row| {
@@ -448,7 +453,7 @@ fn get_new_message_id(db_conn: &mut Connection) -> usize {
     id
 }
 
-fn get_user_id_from_username(db_conn: &mut Connection,
+pub fn get_user_id_from_username(db_conn: &mut Connection,
                              username: &str) -> Result<usize, ()> {
 
     let mut stmt = db_conn.prepare("SELECT id FROM users WHERE username=?1 LIMIT 1").unwrap();
@@ -466,7 +471,7 @@ fn get_user_id_from_username(db_conn: &mut Connection,
     }
 }
 
-fn get_available_id(db_conn: &mut Connection) -> usize {
+pub fn get_available_id(db_conn: &mut Connection) -> usize {
 
     let mut stmt = db_conn.prepare("SELECT id, last FROM available_ids LIMIT 1").unwrap();
     let mut id = stmt.query_map([], |row| {
@@ -477,7 +482,6 @@ fn get_available_id(db_conn: &mut Connection) -> usize {
         println!("Is not last.");
         db_conn.execute("DELETE FROM available_ids WHERE id=?1", [id]).unwrap();
     } else {
-        println!("Is last.");
         db_conn.execute("UPDATE available_ids
                              SET id = id + 1
                              WHERE last > 0", []).unwrap();
@@ -488,7 +492,7 @@ fn get_available_id(db_conn: &mut Connection) -> usize {
     id
 }
 
-fn get_user_password(db_conn: &mut Connection, user_id: usize) -> Result<String, ()> {
+pub fn get_user_password(db_conn: &mut Connection, user_id: usize) -> Result<String, ()> {
 
     let mut stmt = db_conn.prepare("SELECT password FROM users WHERE id=?1").unwrap();
 
@@ -505,7 +509,7 @@ fn get_user_password(db_conn: &mut Connection, user_id: usize) -> Result<String,
     }
 }
 
-fn get_waiting_messages_ids(db_conn: &mut Connection,
+pub fn get_waiting_messages_ids(db_conn: &mut Connection,
                             user_id: usize) -> Result<Vec<usize>, ()> {
 
     let mut stmt = db_conn.prepare("SELECT message_id
@@ -527,7 +531,7 @@ fn get_waiting_messages_ids(db_conn: &mut Connection,
     }
 }
 
-fn get_message(db_conn: &mut Connection, message_id: usize) -> Result<ImplementedMessage, ()> {
+pub fn get_message(db_conn: &mut Connection, message_id: usize) -> Result<ImplementedMessage, ()> {
 
     let recipients = get_message_recipients_ids(db_conn, message_id).unwrap();
     let recipients: Vec<String> = recipients.iter()
@@ -590,7 +594,7 @@ fn get_message(db_conn: &mut Connection, message_id: usize) -> Result<Implemente
     }
 }
 
-fn get_message_recipients_ids(db_conn: &mut Connection, message_id: usize) -> Result<Vec<usize>, ()> {
+pub fn get_message_recipients_ids(db_conn: &mut Connection, message_id: usize) -> Result<Vec<usize>, ()> {
 
     let mut stmt = db_conn.prepare("SELECT recipient_id
                                                  FROM message_recipients
@@ -612,7 +616,7 @@ fn get_message_recipients_ids(db_conn: &mut Connection, message_id: usize) -> Re
     }
 }
 
-fn insert_new_user(db_conn: &mut Connection, user: &User) {
+pub fn insert_new_user(db_conn: &mut Connection, user: &User) {
 
     let id = user.id();
     let id = id.to_sql().unwrap();
@@ -640,8 +644,7 @@ fn insert_new_user(db_conn: &mut Connection, user: &User) {
                         ]).unwrap();
 }
 
-
-fn insert_message_into_database(message: ImplementedMessage, db_conn: &mut Connection) -> Vec<String> {
+pub fn insert_message_into_database(message: ImplementedMessage, db_conn: &mut Connection) -> Vec<String> {
 
     let metadata = message.metadata_ref();
 
@@ -725,7 +728,7 @@ fn insert_message_into_database(message: ImplementedMessage, db_conn: &mut Conne
     non_existent_recipients
 }
 
-fn delete_waiting_message(db_conn: &mut Connection, recipient_id: usize) -> Result<(), ()> {
+pub fn delete_waiting_message(db_conn: &mut Connection, recipient_id: usize) -> Result<(), ()> {
 
     db_conn.execute("DELETE FROM waiting_messages
                          WHERE recipient_id=?1", [recipient_id]).unwrap();
