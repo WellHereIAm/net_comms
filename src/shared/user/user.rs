@@ -1,7 +1,7 @@
 use std::hash::Hash;
 
-use library::prelude::FromRon;
-use library::prelude::ToRon;
+use nardol::prelude::FromRon;
+use nardol::prelude::ToRon;
 use pbkdf2::Pbkdf2;
 use pbkdf2::password_hash::PasswordHash;
 use pbkdf2::password_hash::PasswordHasher;
@@ -16,7 +16,7 @@ use ron::ser;
 use ron::de;
 
 
-use library::error::{NetCommsError, NetCommsErrorKind};
+use nardol::error::{NetCommsError, NetCommsErrorKind};
 use crate::config::SERVER_ID;
 use crate::config::SERVER_USERNAME;
 use crate::config::{UNKNOWN_USER_ID, UNKNOWN_USERNAME};

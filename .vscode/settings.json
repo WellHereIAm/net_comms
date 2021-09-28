@@ -26,5 +26,8 @@
             "name": "NetCommsServer"
         }
     ],
-    "sqltools.useNodeRuntime": true
+    "sqltools.useNodeRuntime": true,
+    "editor.semanticTokenColorCustomizations": {
+        "enabled": true
+    }
 }

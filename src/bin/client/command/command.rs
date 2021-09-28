@@ -1,4 +1,4 @@
-use library::{bytes::{Bytes, IntoBytes},
+use nardol::{bytes::{Bytes, IntoBytes},
               error::{NetCommsError, NetCommsErrorKind},
               prelude::{IntoMessage, ToRon, Packet, PacketKind}};
 use shared::{Content, ImplementedMessage, MessageKind, MetaData, Request,
@@ -36,7 +36,7 @@ pub enum Command {
 
 impl IntoMessage<'_, MetaData, Content> for Command {
     
-    fn into_message(self) -> Result<ImplementedMessage, library::prelude::NetCommsError> {
+    fn into_message(self) -> Result<ImplementedMessage, NetCommsError> {
         match self {
             Command::Send(message_kind, author, recipients, content, file_name) => {
                 return from_send(message_kind, author, recipients, content.into_bytes(), file_name);    

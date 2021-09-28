@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use library::{bytes::IntoBytes, error::{NetCommsError, NetCommsErrorKind}};
+use nardol::{bytes::IntoBytes, error::{NetCommsError, NetCommsErrorKind}};
 use shared::{MessageKind, user::{UserUnchecked, user::UserLite}};
 use utils::input;
 

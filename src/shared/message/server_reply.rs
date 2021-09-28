@@ -1,16 +1,16 @@
-use library::bytes::Bytes;
-use library::bytes::FromBytes;
-use library::bytes::IntoBytes;
-use library::prelude::FromRon;
-use library::prelude::IntoMessage;
-use library::prelude::ToRon;
-use library::prelude::Packet;
-use library::prelude::PacketKind;
+use nardol::bytes::Bytes;
+use nardol::bytes::FromBytes;
+use nardol::bytes::IntoBytes;
+use nardol::prelude::FromRon;
+use nardol::prelude::IntoMessage;
+use nardol::prelude::ToRon;
+use nardol::prelude::Packet;
+use nardol::prelude::PacketKind;
 use serde::{Serialize, Deserialize};
 use ron::ser;
 use ron::de;
 
-use library::error::{NetCommsError, NetCommsErrorKind};
+use nardol::error::{NetCommsError, NetCommsErrorKind};
 
 use crate::Content;
 use crate::ImplementedMessage;

@@ -5,11 +5,11 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use library::bytes::{Bytes, FromBytes, IntoBytes};
-use library::error::{NetCommsError, NetCommsErrorKind};
-use library::message::MetaDataType;
-use library::ron::{ToRon, FromRon};
-use library::packet::{Packet, PacketKind};
+use nardol::bytes::{Bytes, FromBytes, IntoBytes};
+use nardol::error::{NetCommsError, NetCommsErrorKind};
+use nardol::message::MetaDataType;
+use nardol::ron::{ToRon, FromRon};
+use nardol::packet::{Packet, PacketKind};
 
 use super::message_kind::MessageKind;
 use crate::user::{User, UserLite};

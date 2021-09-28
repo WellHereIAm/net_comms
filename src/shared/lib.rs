@@ -4,4 +4,4 @@ pub mod config;
 
 pub use message::{Content, MetaData, MessageKind, Request, RequestRaw};
 
-pub type ImplementedMessage = library::message::Message<MetaData, Content>;
+pub type ImplementedMessage = nardol::message::Message<MetaData, Content>;

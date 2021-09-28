@@ -1,10 +1,10 @@
-use library::bytes::{Bytes, FromBytes, IntoBytes};
+use nardol::bytes::{Bytes, FromBytes, IntoBytes};
 use serde::{Serialize, Deserialize};
 
-use library::ron::{FromRon, ToRon};
-use library::message::{Message, IntoMessage, MetaDataType, ContentType};
-use library::error::NetCommsError;
-use library::packet::{Packet, PacketKind};
+use nardol::ron::{FromRon, ToRon};
+use nardol::message::{Message, IntoMessage, MetaDataType, ContentType};
+use nardol::error::NetCommsError;
+use nardol::packet::{Packet, PacketKind};
 
 use crate::config::{SERVER_ID, SERVER_USERNAME};
 use crate::message::{MessageKind, MetaData, Content};

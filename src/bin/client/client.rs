@@ -7,16 +7,17 @@ use std::{fs, io, thread};
 use std::io::{Read, Write};
 use std::sync::mpsc::{self, Receiver, Sender};
 
-use library::prelude::{FromBytes, FromRon, IntoBytes, IntoMessage, ToRon};
+use nardol::prelude::{FromBytes, FromRon, IntoBytes, IntoMessage, ToRon};
 use serde::{Serialize, Deserialize};
 use ron::de;
 
-use library::error::{NetCommsError, NetCommsErrorKind};
+use nardol::error::{NetCommsError, NetCommsErrorKind};
 use shared::message::ServerReply;
 use shared::{ImplementedMessage, MessageKind, RequestRaw};
 use shared::user::UserLite;
 
 use crate::command::{self, CommandRaw};
+
 
 pub enum Output {
     Error(String),

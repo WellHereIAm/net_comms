@@ -1,8 +1,8 @@
 use serde::{Serialize, Deserialize};
 
-use library::bytes::{Bytes, FromBytes, IntoBytes};
-use library::error::{NetCommsError, NetCommsErrorKind};
-use library::ron::{FromRon, ToRon};
+use nardol::bytes::{Bytes, FromBytes, IntoBytes};
+use nardol::error::{NetCommsError, NetCommsErrorKind};
+use nardol::ron::{FromRon, ToRon};
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -13,7 +13,7 @@ path = "src\\shared\\lib.rs"
 [workspace]
 
 [dependencies]
-library = {path = "library"}
+nardol = "0.0.1"
 
 utils = {git = "https://github.com/WellHereIAm/utils.git", branch = "main"}
 

@@ -2,13 +2,15 @@ use std::thread;
 use std::{path::PathBuf, sync::mpsc};
 use std::str::FromStr;
 
-use library::prelude::*;
+use nardol::prelude::*;
 
 mod server;
 mod message;
 use utils::input;
 
 use server::*;
+
+use server::sql::open_database;
 
 // mod database;
 // ERROR HANDLING

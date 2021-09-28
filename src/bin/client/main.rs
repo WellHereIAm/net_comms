@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 mod command;
-use library::error::NetCommsError;
+use nardol::error::NetCommsError;
 use utils::input;
 
 use crate::client::Client;

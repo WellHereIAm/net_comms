@@ -6,10 +6,10 @@ use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 use std::fs::{self, OpenOptions};
 
-use library::bytes::{Bytes, FromBytes, IntoBytes};
-use library::error::NetCommsErrorKind;
-use library::ron::FromRon;
-use library::{message::{ContentType}, packet::Packet, prelude::{ToRon, Message, NetCommsError}};
+use nardol::bytes::{Bytes, FromBytes, IntoBytes};
+use nardol::error::NetCommsErrorKind;
+use nardol::ron::FromRon;
+use nardol::{message::{ContentType}, packet::Packet, prelude::{ToRon, Message, NetCommsError}};
 
 use crate::ImplementedMessage;
 
