@@ -45,7 +45,7 @@ pub fn open_database(db_path: &Path, _output_t: Sender<Output>) -> Result<(), Ne
         "CREATE TABLE message_recipients (
             message_id          INTEGER NOT NULL,
             recipient_id        INTEGER NOT NULL
-    )", []) {
+        )", []) {
         // Falls here if table already exist, check if table has correct structure is necessary.
     };
 

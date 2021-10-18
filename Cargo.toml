@@ -30,3 +30,4 @@ rand = "0.8.4"
 [dependencies.rusqlite]
 version = "0.25.3"
 features = ["bundled"]
+# This is just example of rust module system with all I managed to gather, yet since I am just a beginner I do not provide any guaranties about its corectness.

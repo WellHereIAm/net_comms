@@ -212,15 +212,16 @@ pub fn handle_connection(mut stream: TcpStream,
 
                     let metadata: MetaData = message.metadata();
                     let message_kind: MessageKind = metadata.message_kind();
-                    let mut location = metadata.get_message_location(&location);
-                    location.push("message.ron");
-                    message.save(&location);
+                    // let mut location = metadata.get_message_location(&location);
+                    // location.push("message.ron");
+                    // message.save(&location);
 
                     match message_kind {
                         MessageKind::Text | MessageKind::File => {
                             let _ = insert_message_into_database(message, &mut db_conn);    
                         },
                         MessageKind::Request => {
+                            // Maybe should create a database to store those requests as well?
                             receive_request(message, stream, &mut db_conn, output);
                         },
                         _ => {}

@@ -305,11 +305,12 @@ impl CommandRaw {
         let mut content = Vec::new();
 
         // Check if the content of command is a Path
-        if cmd_content.starts_with("|") {
+        if cmd_content.starts_with('|') {
             kind = MessageKind::File;
             let cmd_content = cmd_content.replace("|", "");
             let path = Path::new(&cmd_content);
             if path.is_file() {
+                dbg!("is file");
                 match path.to_str() {
                     Some(path) => file_name = Some(path.to_string()),
                     None => {
@@ -325,7 +326,9 @@ impl CommandRaw {
             content = cmd_content.into_buff();
         }
 
-        let author = user.clone();
+        let author = user;
+
+        dbg!(file_name.clone());
 
         Ok(Command::Send(
             kind,

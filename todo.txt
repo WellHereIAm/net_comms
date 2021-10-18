@@ -1,4 +1,4 @@
-1. Create Client struct similar to Server.
+1. Fix sending files.
 2. Concepts:
     Create some File struct to be hold inside new MetaData is_file field.
     Create some UserLite struct to hold only needed user data, without password etc. , just what´s needed.
@@ -19,7 +19,6 @@
         Whole server
 
 13. Create custom parsers for struct sent through network.
-14. Look into reworking Packet and PacketKind to format of PacketPretty.
-15. Try make messages even smaller, without sacrificing readability.
-16. Maybe remove location argument in ContentType::receive, replace it with Config in client.
-17. Change Server and probably Client structs to independent functions. As it seems like those struct are pretty much useless.
+14. Try make messages even smaller, without sacrificing readability.
+15. Merge sql wrappers from client and server.
+
